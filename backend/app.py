@@ -4,6 +4,7 @@ import requests
 import os
 from dotenv import load_dotenv
 import random
+from database import db, MenuItem
 
 load_dotenv()
 
@@ -13,47 +14,32 @@ CORS(app)
 API_ID = os.getenv("NUTRITIONIX_APP_ID")
 API_KEY = os.getenv("NUTRITIONIX_API_KEY")
 
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///menu_items.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db.init_app(app)
+
 @app.route('/api/menu')
 def get_menu():
-    restaurant = request.args.get('restaurant')
-    cal_limit = int(request.args.get('calorieLimit'))
+    restaurant = request.args.get('restaurant', '').lower()
+    cal_limit = int(request.args.get('calorieLimit', 0))
 
-    headers = {
-        'x-app-id': API_ID,
-        'x-app-key': API_KEY
-    }
+    items = MenuItem.query.filter(
+        MenuItem.restaurant == restaurant,
+        MenuItem.calories <= cal_limit
+    ).all()
 
-    search_url = "https://trackapi.nutritionix.com/v2/search/instant"
-    params = {'query': restaurant}
+    if not items:
+        return jsonify("no items"), 200
 
-    response = requests.get(search_url, headers=headers, params=params)
-    data = response.json()
-    branded = data.get('branded', [])
+    return jsonify(random.sample([
+        {
+            "name": item.name,
+            "calories": item.calories,
+            "brand": item.brand,
+            "category": item.category
+        } for item in items
+    ], min(3, len(items))))
 
-    # only get first 20 results so it doesnt go crazy
-    branded = branded[:20]
-
-    results = []
-
-    for item in branded:
-        item_id = item['nix_item_id']
-        detail_resp = requests.get(
-        "https://trackapi.nutritionix.com/v2/search/item",
-        headers=headers,
-        params={"nix_item_id": item_id}
-        )
-        if detail_resp.ok:
-            food = detail_resp.json()['foods'][0]
-        if food['nf_calories'] <= cal_limit:
-            results.append({
-                "name": food['food_name'],
-                "calories": round(food['nf_calories']),
-                "brand": food.get('brand_name'),
-                "category": food.get('tags', {}).get('food_group', 'unknown')
-            })
-
-
-    return jsonify(random.sample(results, min(3, len(results))))
 
 if __name__ == "__main__":
     app.run(debug=True)
