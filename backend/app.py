@@ -21,11 +21,13 @@ db.init_app(app)
 @app.route('/api/menu')
 def get_menu():
     restaurant = request.args.get('restaurant', '').lower()
-    cal_limit = int(request.args.get('calorieLimit', 0))
-
+    cal_max = int(request.args.get('calorieMax', 0))
+    cal_min = int(request.args.get('calorieMin', 0))
+    
     items = MenuItem.query.filter(
         MenuItem.restaurant == restaurant,
-        MenuItem.calories <= cal_limit
+        MenuItem.calories <= cal_max,
+        MenuItem.calories >= cal_min
     ).all()
 
     if not items:
