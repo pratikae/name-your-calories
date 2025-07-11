@@ -1,0 +1,15 @@
+# backend
+backend/venv/
+backend/.env
+backend/__pycache__/
+backend/*.py[cod]
+backend/instance/
+backend/.webassets-cache/
+
+# frontend
+frontend/node_modules/
+frontend/build/
+frontend/.env
+
+# mac stuff
+.DS_Store
