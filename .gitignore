@@ -12,6 +12,8 @@ frontend/build/
 frontend/.env
 
 node_modules/
+package.json 
+package-lock.json
 
 # mac stuff
 .DS_Store
