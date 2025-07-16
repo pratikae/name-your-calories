@@ -3,4 +3,4 @@ requests
 flask-cors
 python-dotenv
 flask_sqlalchemy
-playwright # web scrapping tool
+pdfplumber # pdf parsing tool

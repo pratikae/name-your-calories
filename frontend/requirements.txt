@@ -1,2 +1,3 @@
 react
 axios
+recharts # pie charts :)
