@@ -1,23 +1,40 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+  import React, { useState, useEffect } from "react";
+  import axios from "axios";
 
-const App = () => {
+  const App = () => {
   const [restaurant, setRestaurant] = useState("");
   const [restaurants, setRestaurants] = useState([])
   const [minCalories, setMinCalories] = useState<number | "">("")
   const [maxCalories, setMaxCalories] = useState<number | "">("")
   const [hasFetched, setHasFetched] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [items, setItems] = useState([])
+
+  const paramsSerializer = (params: any) => {
+    const searchParams = new URLSearchParams();
+    for (const key in params) {
+      const value = params[key];
+      if (Array.isArray(value)) {
+        value.forEach((val) => searchParams.append(key, val));
+      } else if (value !== undefined && value !== "") {
+        searchParams.append(key, value);
+      }
+    }
+    return searchParams.toString();
+  };
 
   const fetchItems = async () => {
     try {
       const res = await axios.get("http://127.0.0.1:5000/api/menu", {
-        params: {
+          params: {
           restaurant,
           calorieMax: maxCalories,
-          calorieMin: minCalories
+          calorieMin: minCalories,
+          categories: Array.from(selectedCategories),
         },
-      })
+        paramsSerializer,
+      });
       setItems(res.data)
       setHasFetched(true);
     } catch (err) {
@@ -36,6 +53,27 @@ const App = () => {
       setRestaurants([])
     }
   }
+
+  const fetchCategories = async () => {
+    if (!restaurant) return;
+
+    try {
+      const res = await axios.get("http://127.0.0.1:5000/api/categories", {
+        params: { restaurant }
+      });
+      setCategories(res.data);
+      setSelectedCategories(new Set(res.data)); // default: all selected
+    } catch (err) {
+      console.error("error fetching categories:", err);
+      setCategories([]);
+      setSelectedCategories(new Set());
+    }
+  };
+
+  // fetch when restaurant is selected
+  useEffect(() => {
+    fetchCategories();
+  }, [restaurant])
 
   useEffect(() => {
     fetchRestaurants();
@@ -59,6 +97,30 @@ const App = () => {
             ))}
           </select>
         </div>
+
+        {/* toggle different categories */}
+        {categories.length > 0 && (
+          <div>
+            <h4>include categories:</h4>
+            {categories.map((cat) => (
+              <label key={cat} style={{ marginRight: '10px' }}>
+                <input
+                  type="checkbox"
+                  checked={selectedCategories.has(cat)}
+                  onChange={() => {
+                    setSelectedCategories((prev) => {
+                      const newSet = new Set(prev);
+                      if (newSet.has(cat)) newSet.delete(cat);
+                      else newSet.add(cat);
+                      return newSet;
+                    });
+                  }}
+                />
+                {cat}
+              </label>
+            ))}
+          </div>
+        )}
 
         <br />
         {/* calorie range*/}
@@ -102,6 +164,6 @@ const App = () => {
         </div>
     </div>
   );
-};
+  };
 
-export default App;
+  export default App;

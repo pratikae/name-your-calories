@@ -71,13 +71,15 @@ def parse_menu_pdf(filepath):
                     if not row or len(row) < 5:
                         continue
                     
-                    category = ""
-                    
-                    if not all([row[0], row[col_map["calories"]], row[col_map["protein"]], row[col_map["carbs"]], row[col_map["fat"]]]):
-                        if row[0]:  # only set category if there is a name
-                            category = row[0].strip()
-                            if "cantina" in category.lower() and category.lower() != "cantina chicken menu":
-                                continue
+                    category_candidate = row[0].strip() if row[0] else ""
+
+                    # check if the row is a category header
+                    if not any(row[i] for i in col_map.values()) and category_candidate:
+                        last_category = category_candidate
+                        continue  # skip the category header row itself
+
+                    # make sure row has nutrition info
+                    if not all(row[i] for i in col_map.values()):
                         print("skipping bad row")
                         continue
 
@@ -93,7 +95,7 @@ def parse_menu_pdf(filepath):
                     menu_items.append({
                         "name": name,
                         "restaurant": restaurant_name,
-                        "category": category,
+                        "category": last_category if 'last_category' in locals() else "unknown",
                         "calories": calories,
                         "fat": fat,
                         "carbs": carbs,
@@ -116,7 +118,7 @@ def cache_restaurants():
                     fat=item["fat"],
                     carbs=item["carbs"],
                     protein=item["protein"],
-                    category="unknown"
+                    category=item["category"]
                 ))
         db.session.commit()
         print("cached all restaurants")
