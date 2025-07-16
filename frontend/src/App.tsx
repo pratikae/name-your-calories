@@ -1,26 +1,45 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 const App = () => {
-  const [restaurant, setRestaurant] = useState("mcdonalds");
-  const [minCalories, setMinCalories] = useState(0);
-  const [maxCalories, setMaxCalories] = useState(600);
-  const [items, setItems] = useState([]);
+  const [restaurant, setRestaurant] = useState("");
+  const [restaurants, setRestaurants] = useState([])
+  const [minCalories, setMinCalories] = useState<number | "">("")
+  const [maxCalories, setMaxCalories] = useState<number | "">("")
+  const [hasFetched, setHasFetched] = useState(false);
+  const [items, setItems] = useState([])
 
   const fetchItems = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/menu", {
+      const res = await axios.get("http://127.0.0.1:5000/api/menu", {
         params: {
           restaurant,
           calorieMax: maxCalories,
           calorieMin: minCalories
         },
-      });
-      setItems(res.data);
+      })
+      setItems(res.data)
+      setHasFetched(true);
     } catch (err) {
-      console.error("Error fetching menu:", err);
+      console.error("error fetching menu:", err)
+      setItems([])
+      setHasFetched(true);
     }
   };
+
+  const fetchRestaurants = async () => {
+    try {
+      const res = await axios.get("http://127.0.0.1:5000/api/get_restaurants")
+      setRestaurants(res.data)
+    } catch (err) {
+      console.error("error fetching menu:", err)
+      setRestaurants([])
+    }
+  }
+
+  useEffect(() => {
+    fetchRestaurants();
+  }, []);
 
   return (
     <div style={{ textAlign: "center", marginTop: "75px" }}>
@@ -29,12 +48,15 @@ const App = () => {
         {/* choosing restaurants */}
         <div>
           <label>
-            choose a restaurant:
+            choose a restaurant: 
           </label>
           <select value={restaurant} onChange={(e) => setRestaurant(e.target.value)} >
-            <option value="mcdonalds">McDonald's</option>
-            <option value="taco bell">Taco Bell</option>
-            <option value="chick-fil-a">Chick-fil-A</option>
+            <option value="">select an option</option>
+            {restaurants.map((rest) => (
+              <option key={rest} value={rest}>
+                {rest}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -44,15 +66,15 @@ const App = () => {
           <input
             type="number"
             value={minCalories}
-            onChange={(e) => setMinCalories(Number(e.target.value))}
-            placeholder="Min calories"
+            onChange={(e) => setMinCalories(e.target.value === "" ? "" : Number(e.target.value))}
+            placeholder="min calories"
           />
           <span> to </span>
           <input
             type="number"
             value={maxCalories}
-            onChange={(e) => setMaxCalories(Number(e.target.value))}
-            placeholder="Max calories"
+            onChange={(e) => setMaxCalories(e.target.value === "" ? "" : Number(e.target.value))}
+            placeholder="max calories"
           />
           <span className="ml-2 font-semibold text-gray-700 whitespace-nowrap"> calories</span>
         </div>
@@ -62,17 +84,21 @@ const App = () => {
           get items
         </button>
 
-        <div className="mt-8 w-full">
-          {items.map((item: any, index) => (
-            <div
-              key={index}
-              className="border border-gray-300 rounded p-4 mb-4 shadow-sm bg-white"
-            >
-              <h2 className="text-lg font-semibold">{item.name}</h2>
-              <p>calories: {item.calories}</p>
-              <p>category: {item.category}</p>
-            </div>
-          ))}
+        <div>
+          {hasFetched && items.length === 0 ? (
+            <p>no items found</p>
+          ) : (
+            items.map((item: any, index) => (
+              <div key={index}>
+                <h3>{item.name}</h3>
+                <p>calories: {item.calories}</p>
+                <p>protein: {item.protein}</p>
+                <p>carbs: {item.carbs}</p>
+                <p>fat: {item.fat}</p>
+              </div>
+            ))
+          )}
+
         </div>
     </div>
   );
