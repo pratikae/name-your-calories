@@ -26,7 +26,7 @@
 
   const fetchItems = async () => {
     try {
-      const res = await axios.get("http://127.0.0.1:5000/api/menu", {
+      const res = await axios.get("http://127.0.0.1:5050/api/menu", {
           params: {
           restaurant,
           calorieMax: maxCalories,
@@ -46,7 +46,7 @@
 
   const fetchRestaurants = async () => {
     try {
-      const res = await axios.get("http://127.0.0.1:5000/api/get_restaurants")
+      const res = await axios.get("http://127.0.0.1:5050/api/get_restaurants")
       setRestaurants(res.data)
     } catch (err) {
       console.error("error fetching menu:", err)
@@ -58,11 +58,11 @@
     if (!restaurant) return;
 
     try {
-      const res = await axios.get("http://127.0.0.1:5000/api/categories", {
+      const res = await axios.get("http://127.0.0.1:5050/api/categories", {
         params: { restaurant }
       });
       setCategories(res.data);
-      setSelectedCategories(new Set(res.data)); // default: all selected
+      setSelectedCategories(new Set(res.data)); // default to all selected
     } catch (err) {
       console.error("error fetching categories:", err);
       setCategories([]);
@@ -103,7 +103,7 @@
           <div>
             <h4>include categories:</h4>
             {categories.map((cat) => (
-              <label key={cat} style={{ marginRight: '10px' }}>
+              <label>
                 <input
                   type="checkbox"
                   checked={selectedCategories.has(cat)}

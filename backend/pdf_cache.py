@@ -13,6 +13,8 @@ restaurant_files = {
     "shake shack": "shake-shack.pdf",
 }
 
+disallowed_categories = ["at participating locations", "catering", "trays"]
+
 import re
 def get_restaurant_name(filepath):
     with pdfplumber.open(filepath) as pdf:
@@ -76,11 +78,17 @@ def parse_menu_pdf(filepath):
                     # check if the row is a category header
                     if not any(row[i] for i in col_map.values()) and category_candidate:
                         last_category = category_candidate
+                        if "Veggie Cravings" in last_category: # taco bell is annoying
+                            last_category = "Veggie Cravings"
                         continue  # skip the category header row itself
 
                     # make sure row has nutrition info
                     if not all(row[i] for i in col_map.values()):
                         print("skipping bad row")
+                        continue
+                    
+                    # don't need disallowed categories
+                    if any(disallowed in last_category.lower() for disallowed in disallowed_categories):
                         continue
 
                     name = row[0].strip()
@@ -89,7 +97,7 @@ def parse_menu_pdf(filepath):
                         fat = float(row[col_map["fat"]])
                         carbs = float(row[col_map["carbs"]])
                         protein = float(row[col_map["protein"]])
-                    except (ValueError, IndexError): # skip bad stuff
+                    except (ValueError, IndexError): # skip bad stuff that didnt get caught somehow
                         continue 
 
                     menu_items.append({
