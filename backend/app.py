@@ -1,47 +1,21 @@
-from flask import Flask, request, jsonify
+from flask import Flask
 from flask_cors import CORS
-import requests
-import os
 from dotenv import load_dotenv
-import random
-from database import db, MenuItem
+from database import db
+from routes import routes 
+
+import os
 
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
-
-API_ID = os.getenv("NUTRITIONIX_APP_ID")
-API_KEY = os.getenv("NUTRITIONIX_API_KEY")
+CORS(app, origins=["http://localhost:5173"])
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///menu_items.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
-@app.route('/api/menu')
-def get_menu():
-    restaurant = request.args.get('restaurant', '').lower()
-    cal_max = int(request.args.get('calorieMax', 0))
-    cal_min = int(request.args.get('calorieMin', 0))
-    
-    items = MenuItem.query.filter(
-        MenuItem.restaurant == restaurant,
-        MenuItem.calories <= cal_max,
-        MenuItem.calories >= cal_min
-    ).all()
-
-    if not items:
-        return jsonify("no items"), 200
-
-    return jsonify(random.sample([
-        {
-            "name": item.name,
-            "calories": item.calories,
-            "brand": item.brand,
-            "category": item.category
-        } for item in items
-    ], min(3, len(items))))
-
+app.register_blueprint(routes)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host="localhost", port=5000)

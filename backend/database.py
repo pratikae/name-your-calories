@@ -7,5 +7,7 @@ class MenuItem(db.Model):
     restaurant = db.Column(db.String, nullable=False)
     name = db.Column(db.String, nullable=False)
     calories = db.Column(db.Integer, nullable=False)
-    brand = db.Column(db.String, nullable=True)
-    category = db.Column(db.String, nullable=True)
+    protein = db.Column(db.Integer, nullable=True)
+    carbs = db.Column(db.Integer, nullable=True)
+    fat = db.Column(db.Integer, nullable=True)
+    category = db.Column(db.String, nullable=True) # side, drink, main...
