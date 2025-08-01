@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 
-// range slider with number inputs for filters
+// sliders for filter range inputs
 const MacroRangeSlider = ({
   label,
   min,
@@ -12,7 +12,7 @@ const MacroRangeSlider = ({
   maxVal,
   setMinVal,
   setMaxVal,
-} : {
+}: {
   label: string;
   min: number;
   max: number;
@@ -23,51 +23,67 @@ const MacroRangeSlider = ({
   setMaxVal: (v: number | "") => void;
 }) => {
   return (
-    <div style={{ margin: "20px 0" }}>
-      <label style={{ fontWeight: "bold" }}>{label}</label>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "4px" }}>
-        <input
-          type="number"
-          min={min}
-          max={max}
-          step={step}
-          value={minVal}
-          onChange={(e) =>
-            setMinVal(e.target.value === "" ? "" : Number(e.target.value))
-          }
-          style={{ width: "70px" }}
-        />
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={minVal === "" ? min : minVal}
-          onChange={(e) => setMinVal(Number(e.target.value))}
-          style={{ flex: 1 }}
-        />
-        <span>to</span>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={maxVal === "" ? max : maxVal}
-          onChange={(e) => setMaxVal(Number(e.target.value))}
-          style={{ flex: 1 }}
-        />
-        <input
-          type="number"
-          min={min}
-          max={max}
-          step={step}
-          value={maxVal}
-          onChange={(e) =>
-            setMaxVal(e.target.value === "" ? "" : Number(e.target.value))
-          }
-          style={{ width: "70px" }}
-        />
-        <span>{label}</span>
+    <div
+      style={{
+        margin: "20px 0",
+        display: "flex",
+        justifyContent: "center",
+        width: "100%",
+      }}
+    >
+      <div style={{ width: "60%" }}>
+        <label style={{ fontWeight: "bold" }}>{label}</label>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            marginTop: "4px",
+            flexWrap: "wrap",
+          }}
+        >
+          <input
+            type="number"
+            min={min}
+            max={max}
+            step={step}
+            value={minVal}
+            onChange={(e) =>
+              setMinVal(e.target.value === "" ? "" : Number(e.target.value))
+            }
+            style={{ width: "70px" }}
+          />
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={minVal === "" ? min : minVal}
+            onChange={(e) => setMinVal(Number(e.target.value))}
+            style={{ flex: 1 }}
+          />
+          <span>to</span>
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={maxVal === "" ? max : maxVal}
+            onChange={(e) => setMaxVal(Number(e.target.value))}
+            style={{ flex: 1 }}
+          />
+          <input
+            type="number"
+            min={min}
+            max={max}
+            step={step}
+            value={maxVal}
+            onChange={(e) =>
+              setMaxVal(e.target.value === "" ? "" : Number(e.target.value))
+            }
+            style={{ width: "70px" }}
+          />
+        </div>
       </div>
     </div>
   );
