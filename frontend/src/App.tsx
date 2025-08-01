@@ -138,7 +138,7 @@ const App = () => {
   const [categories, setCategories] = useState<string[]>([])
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
   const [items, setItems] = useState([])
-  const [customRestaurant, setCustomRestaurant] = useState("")
+  // const [customRestaurant, setCustomRestaurant] = useState("")
   const [numItems, setNumItems] = useState<number | "">("")
 
   const paramsSerializer = (params: any) => {
@@ -222,7 +222,7 @@ const App = () => {
 
       {/* choose restaurant */}
       <div>
-        <label htmlFor="restaurantChoice" style={{ marginRight: "8px" }}>
+        <label htmlFor="restaurantChoice" style={{ marginRight: "8px", fontWeight: "bold" }}>
           choose a restaurant:
         </label>
         <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px", justifyContent: "center" }}>
@@ -232,7 +232,7 @@ const App = () => {
             value={restaurant}
             onChange={(e) => {
               setRestaurant(e.target.value);
-              setCustomRestaurant("");
+              // setCustomRestaurant("");
             }}
           >
             <option value="">select from dropdown</option>
