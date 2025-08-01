@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 
-// range slider with number inputs
+// range slider with number inputs for filters
 const MacroRangeSlider = ({
   label,
   min,
@@ -106,23 +106,24 @@ const MacroPieChart = ({ protein, carbs, fat }: { protein: number; carbs: number
   };
 
 const App = () => {
-  const filters = ["calories", "protein", "carbs", "fat"];
-  const [restaurant, setRestaurant] = useState("");
-  const [restaurants, setRestaurants] = useState([]);
-  const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set());
-  const [minCalories, setMinCalories] = useState<number | "">("");
-  const [maxCalories, setMaxCalories] = useState<number | "">("");
-  const [minProtein, setMinProtein] = useState<number | "">("");
-  const [maxProtein, setMaxProtein] = useState<number | "">("");
-  const [minFat, setMinFat] = useState<number | "">("");
-  const [maxFat, setMaxFat] = useState<number | "">("");
-  const [minCarbs, setMinCarbs] = useState<number | "">("");
-  const [maxCarbs, setMaxCarbs] = useState<number | "">("");
-  const [hasFetched, setHasFetched] = useState(false);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
-  const [items, setItems] = useState([]);
-  const [customRestaurant, setCustomRestaurant] = useState("");
+  const filters = ["calories", "protein", "carbs", "fat"]
+  const [restaurant, setRestaurant] = useState("")
+  const [restaurants, setRestaurants] = useState([])
+  const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set())
+  const [minCalories, setMinCalories] = useState<number | "">("")
+  const [maxCalories, setMaxCalories] = useState<number | "">("")
+  const [minProtein, setMinProtein] = useState<number | "">("")
+  const [maxProtein, setMaxProtein] = useState<number | "">("")
+  const [minFat, setMinFat] = useState<number | "">("")
+  const [maxFat, setMaxFat] = useState<number | "">("")
+  const [minCarbs, setMinCarbs] = useState<number | "">("")
+  const [maxCarbs, setMaxCarbs] = useState<number | "">("")
+  const [hasFetched, setHasFetched] = useState(false)
+  const [categories, setCategories] = useState<string[]>([])
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
+  const [items, setItems] = useState([])
+  const [customRestaurant, setCustomRestaurant] = useState("")
+  const [numItems, setNumItems] = useState<number | "">("")
 
   const paramsSerializer = (params: any) => {
     const searchParams = new URLSearchParams();
@@ -139,8 +140,9 @@ const App = () => {
 
   const fetchItems = async () => {
     try {
-      const res = await axios.get("http://127.0.0.1:5050/api/menu", {
+      const res = await axios.get("http://127.0.0.1:5050/api/items", {
         params: {
+          num: numItems,
           restaurant,
           calorieMax: maxCalories,
           calorieMin: minCalories,
@@ -324,6 +326,13 @@ const App = () => {
       )}
 
       <br /> <br />
+      <input type="number" value={numItems}
+        onChange={(e) =>
+          setNumItems(e.target.value === "" ? "" : Number(e.target.value))
+        }
+        placeholder="items in shuffle res"
+      />
+      <span> </span>
       <button onClick={fetchItems}>get items</button>
       <br /> <br />
 
