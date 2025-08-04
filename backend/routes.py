@@ -61,7 +61,55 @@ def get_items():
             "category": item.category
         } for item in items
     ])
+  
+@routes.route('/api/make_combo')
+def make_combo():
+    restaurant = request.args.get('restaurant', '').lower()
+    shuffle_num = int(request.args.get('num'))
+
+    filters = [MenuItem.restaurant == restaurant]
+
+    # add all of the macro filters to filters arr (only max to build a combo)
+    if request.args.get("calorieMax"):
+        filters.append(MenuItem.calories <= int(request.args.get("calorieMax")))
+
+    if request.args.get("proteinMax"):
+        filters.append(MenuItem.protein <= int(request.args.get("proteinMax")))
+
+    if request.args.get("fatMax"):
+        filters.append(MenuItem.fat <= int(request.args.get("fatMax")))
+
+    if request.args.get("carbMax"):
+        filters.append(MenuItem.carbs <= int(request.args.get("carbMax")))
+
+    # add category filters to filters arr
+    categories = request.args.getlist("categories")
+    if categories:
+        filters.append(MenuItem.category.in_(categories))
+
+    # query by what is in the filters arr
+    items_query = MenuItem.query.filter(and_(*filters))
+    items = items_query.all()
+        
+    if shuffle_num:
+        if shuffle_num < len(items):
+            items = random.sample(items, shuffle_num)
+            
+    return jsonify([
+        {
+            "name": item.name,
+            "calories": item.calories,
+            "protein": item.protein,
+            "carbs": item.carbs,
+            "fat": item.fat,
+            "category": item.category
+        } for item in items
+    ])
     
+@routes.route('/api/combos')    
+def get_combos():
+    return 
+
 @routes.route('/api/get_restaurants')
 def get_restaurants():
     restaurant_names = db.session.query(MenuItem.restaurant).distinct().all()
