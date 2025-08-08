@@ -151,32 +151,46 @@ type PinnedItem = {
 };
 
 const App = () => {
-  const filters = ["calories", "protein", "carbs", "fat"];
-  const [restaurant, setRestaurant] = useState("");
-  const [restaurants, setRestaurants] = useState<string[]>([]);
-  const [items, setItems] = useState<MenuItem[]>([]);
-  const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set());
-  const [minCalories, setMinCalories] = useState<number | "">("");
-  const [maxCalories, setMaxCalories] = useState<number | "">("");
-  const [minProtein, setMinProtein] = useState<number | "">("");
-  const [maxProtein, setMaxProtein] = useState<number | "">("");
-  const [minFat, setMinFat] = useState<number | "">("");
-  const [maxFat, setMaxFat] = useState<number | "">("");
-  const [minCarbs, setMinCarbs] = useState<number | "">("");
-  const [maxCarbs, setMaxCarbs] = useState<number | "">("");
-  const [hasFetched, setHasFetched] = useState(false);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
-  const [numItems, setNumItems] = useState<number | "">("");
-  const [makeCombo, setMakeCombo] = useState(false);
+  const filters = ["calories", "protein", "carbs", "fat"]
+  const [restaurant, setRestaurant] = useState("")
+  const [restaurants, setRestaurants] = useState<string[]>([])
+  const [items, setItems] = useState<MenuItem[]>([])
+  const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set())
+  const [minCalories, setMinCalories] = useState<number | "">("")
+  const [maxCalories, setMaxCalories] = useState<number | "">("")
+  const [minProtein, setMinProtein] = useState<number | "">("")
+  const [maxProtein, setMaxProtein] = useState<number | "">("")
+  const [minFat, setMinFat] = useState<number | "">("")
+  const [maxFat, setMaxFat] = useState<number | "">("")
+  const [minCarbs, setMinCarbs] = useState<number | "">("")
+  const [maxCarbs, setMaxCarbs] = useState<number | "">("")
+  const [hasFetched, setHasFetched] = useState(false)
+  const [categories, setCategories] = useState<string[]>([])
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
+  const [numItems, setNumItems] = useState<number | "">("")
+  const [makeCombo, setMakeCombo] = useState(false)
   const [remainingMacros, setRemainingMacros] = useState<{
     calories?: number;
     protein?: number;
     fat?: number;
     carbs?: number;
   }>({});
-
   const [pinnedItems, setPinnedItems] = useState<PinnedItem[]>([]);
+  const [showCombos, setShowCombos] = useState(false);
+
+  type ComboData = {
+    items: string[];
+    count: number;
+    total: {
+      calories: number;
+      protein: number;
+      fat: number;
+      carbs: number;
+    };
+  };
+
+  const [combos, setCombos] = useState<ComboData[]>([]);
+  const [numCombos, setNumCombos] = useState<number | "">("")
 
   const paramsSerializer = (params: any) => {
     const searchParams = new URLSearchParams();
@@ -210,12 +224,42 @@ const App = () => {
         },
         paramsSerializer,
       });
-
       setItems(res.data);
       setHasFetched(true);
     } catch (err) {
       console.error("error fetching items:", err);
       setItems([]);
+      setHasFetched(true);
+    }
+  };
+
+  // fetching all combos
+  const fetchCombos = async () => {
+    try {
+      const res = await axios.post("http://127.0.0.1:5050/api/get_combos", {
+        restaurant,
+        categories: Array.from(selectedCategories),
+        macros: {
+          calorieMin: minCalories,
+          calorieMax: maxCalories,
+          proteinMin: minProtein,
+          proteinMax: maxProtein,
+          fatMin: minFat,
+          fatMax: maxFat,
+          carbMin: minCarbs,
+          carbMax: maxCarbs,
+        },
+        num: numCombos
+      });
+      console.log("backend response:", res.data);
+      console.log("first combo:", res.data[0]);
+      setCombos(res.data);
+      setShowCombos(true);
+      setHasFetched(true);
+    } catch (err) {
+      console.error("error fetching combos:", err);
+      setCombos([]);
+      setShowCombos(true);
       setHasFetched(true);
     }
   };
@@ -387,7 +431,7 @@ const App = () => {
   };
 
   // change count of pinned items with +/- buttons
-  const changeCount = (itemName: string, newCount: number) => {
+  const changeItemCount = (itemName: string, newCount: number) => {
     if (newCount <= 0) {
       setPinnedItems((prev) => prev.filter((p) => p.menuItem.name !== itemName));
     } else {
@@ -397,6 +441,42 @@ const App = () => {
         )
       );
     }
+  };
+
+  const itemContainerStyle: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "center",
+    marginBottom: "20px",
+  };
+
+  const itemCardStyle: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    width: "33%",
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    padding: "10px",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa", // slight background to distinguish from regular items
+  };
+
+  const itemContentStyle: React.CSSProperties = {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    textAlign: "center",
+  };
+
+  const comboItemCardStyle: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    width: "33%",
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    padding: "10px",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa", // slight background to distinguish from regular items
   };
 
   return (
@@ -535,6 +615,8 @@ const App = () => {
         />
       )}
 
+      <br/> 
+
       <label style={{ marginLeft: "10px" }}>
         <input
           type="checkbox"
@@ -545,18 +627,25 @@ const App = () => {
       </label>
 
       <br /> <br />
-      <input
-        type="number"
-        value={numItems}
+      <input type="number" value={numItems}
         onChange={(e) =>
           setNumItems(e.target.value === "" ? "" : Number(e.target.value))
         }
         placeholder="items in shuffle res"
       />
-      <span> </span>
+      <span></span>
       <button onClick={() => (makeCombo ? fetchComboItems() : fetchItems())}>
         shuffle items
       </button>
+      <span style={{ margin: "0 10px" }}> or </span>
+      <input type="number" value={numCombos}
+        onChange={(e) =>
+          setNumCombos(e.target.value === "" ? "" : Number(e.target.value))
+        }
+        placeholder="items in combo res"
+      />
+      <span></span>
+      <button onClick={fetchCombos}>get combos</button>
 
       <br /> <br />
 
@@ -577,12 +666,12 @@ const App = () => {
             >
               {/* decrease item count by one */}
               <span style={{ flex: 1 }}>{item.name}</span>
-              <button onClick={() => changeCount(item.name, count - 1)} disabled={count <= 1}>
+              <button onClick={() => changeItemCount(item.name, count - 1)} disabled={count <= 1}>
                 -
               </button>
               <span>{count}</span>
               {/* increase item count by one */}
-              <button onClick={() => changeCount(item.name, count + 1)}>
+              <button onClick={() => changeItemCount(item.name, count + 1)}>
                 +
               </button>
 
@@ -643,51 +732,11 @@ const App = () => {
           <p>no items found</p>
         ) : (
           [
-            // unique pinned items, so only one card per pinned item
-            ...Array.from(
-              new Map(
-                pinnedItems.map((pinnedItem) => {
-                  const fullItem =
-                    items.find((i) => i.name === pinnedItem.menuItem.name) ||
-                    pinnedItem.menuItem;
-                  return [pinnedItem.menuItem.name, fullItem];
-                })
-              ).values()
-            ),
-            // plus all items that are not pinned
-            ...items.filter(
-              (item) =>
-                !pinnedItems.some((p) => p.menuItem.name === item.name)
-            ),
+            // ... your existing array logic ...
           ].map((item: any, index) => (
-            <div
-              key={index}
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                marginBottom: "20px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  width: "33%",
-                  border: "1px solid #ddd",
-                  borderRadius: "8px",
-                  padding: "10px",
-                  alignItems: "center",
-                }}
-              >
-                <div
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    textAlign: "center",
-                  }}
-                >
+            <div key={index} style={itemContainerStyle}>
+              <div style={itemCardStyle}>
+                <div style={itemContentStyle}>
                   {/* checkbox to pin items */}
                   {makeCombo && (
                     <label>
@@ -709,6 +758,36 @@ const App = () => {
           ))
         )}
       </div>
+
+      {/* combos */}
+      {showCombos && combos.length > 0 && (
+        <div>
+          <h3 style={{ marginTop: "40px", marginBottom: "20px" }}> combos</h3>
+          {combos.map((combo, index) => (
+            <div key={index} style={itemContainerStyle}>
+              <div style={comboItemCardStyle}>
+                <div style={itemContentStyle}>
+                  <h3 style={{ marginBottom: "8px" }}>combo {index + 1} - {combo.total.calories} cal </h3>
+                  <div style={{ marginBottom: "8px" }}>
+                    <strong>items ({combo.count}):</strong>
+                    <ul style={{ textAlign: "left", marginTop: "4px", paddingLeft: "20px" }}>
+                      {combo.items.map((itemName, idx) => (
+                        <li key={idx}>{itemName}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+                <MacroPieChart 
+                  protein={combo.total.protein} 
+                  carbs={combo.total.carbs} 
+                  fat={combo.total.fat} 
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
     </div>
   );
 };
