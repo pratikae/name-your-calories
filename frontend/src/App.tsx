@@ -732,7 +732,21 @@ const App = () => {
           <p>no items found</p>
         ) : (
           [
-            // ... your existing array logic ...
+            ...Array.from(
+              new Map(
+                pinnedItems.map((pinnedItem) => {
+                  const fullItem =
+                    items.find((i) => i.name === pinnedItem.menuItem.name) ||
+                    pinnedItem.menuItem;
+                  return [pinnedItem.menuItem.name, fullItem];
+                })
+              ).values()
+            ),
+            // plus all items that are not pinned
+            ...items.filter(
+              (item) =>
+                !pinnedItems.some((p) => p.menuItem.name === item.name)
+            ),
           ].map((item: any, index) => (
             <div key={index} style={itemContainerStyle}>
               <div style={itemCardStyle}>
@@ -760,7 +774,9 @@ const App = () => {
       </div>
 
       {/* combos */}
-      {showCombos && combos.length > 0 && (
+      {showCombos && combos.length == 0 ? (
+        <p>no combos found</p>
+      ) : (
         <div>
           <h3 style={{ marginTop: "40px", marginBottom: "20px" }}> combos</h3>
           {combos.map((combo, index) => (
