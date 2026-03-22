@@ -4,3 +4,4 @@ flask-cors
 python-dotenv
 flask_sqlalchemy
 pdfplumber # pdf parsing tool
+beautifulsoup4 # html parsing for nutritionix scraper
