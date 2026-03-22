@@ -191,6 +191,9 @@ const App = () => {
 
   const [combos, setCombos] = useState<ComboData[]>([]);
   const [numCombos, setNumCombos] = useState<number | "">("")
+  const [maxItemsPerCombo, setMaxItemsPerCombo] = useState<number | "">(5)
+  const [closestItems, setClosestItems] = useState(false)
+  const [closestCombos, setClosestCombos] = useState(false)
 
   const paramsSerializer = (params: any) => {
     const searchParams = new URLSearchParams();
@@ -224,11 +227,15 @@ const App = () => {
         },
         paramsSerializer,
       });
-      setItems(res.data);
+      setItems(res.data.items);
+      setClosestItems(res.data.closest);
+      setShowCombos(false);
       setHasFetched(true);
     } catch (err) {
       console.error("error fetching items:", err);
       setItems([]);
+      setClosestItems(false);
+      setShowCombos(false);
       setHasFetched(true);
     }
   };
@@ -249,16 +256,17 @@ const App = () => {
           carbMin: minCarbs,
           carbMax: maxCarbs,
         },
-        num: numCombos
+        num: numCombos,
+        maxItems: maxItemsPerCombo,
       });
-      console.log("backend response:", res.data);
-      console.log("first combo:", res.data[0]);
-      setCombos(res.data);
+      setCombos(res.data.combos);
+      setClosestCombos(res.data.closest);
       setShowCombos(true);
       setHasFetched(true);
     } catch (err) {
       console.error("error fetching combos:", err);
       setCombos([]);
+      setClosestCombos(false);
       setShowCombos(true);
       setHasFetched(true);
     }
@@ -363,11 +371,13 @@ const App = () => {
         ...res.data,
       ];
       setItems(fullCombo);
+      setShowCombos(false);
       setHasFetched(true);
       setRemainingMacros(remaining);
     } catch (err) {
       console.error("error fetching combo items:", err);
       setItems([]);
+      setShowCombos(false);
       setHasFetched(true);
     }
   };
@@ -642,7 +652,18 @@ const App = () => {
         onChange={(e) =>
           setNumCombos(e.target.value === "" ? "" : Number(e.target.value))
         }
-        placeholder="items in combo res"
+        placeholder="# of combos"
+      />
+      <span></span>
+      <input
+        type="number"
+        min={2}
+        value={maxItemsPerCombo}
+        onChange={(e) =>
+          setMaxItemsPerCombo(e.target.value === "" ? "" : Number(e.target.value))
+        }
+        placeholder="max items per combo"
+        style={{ width: "130px" }}
       />
       <span></span>
       <button onClick={fetchCombos}>get combos</button>
@@ -728,7 +749,10 @@ const App = () => {
 
       {/* items */}
       <div>
-        {hasFetched && items.length === 0 ? (
+        {hasFetched && !showCombos && closestItems && items.length > 0 && (
+        <p style={{ color: "#888", fontStyle: "italic" }}>no exact matches - showing closest items</p>
+      )}
+      {hasFetched && !showCombos && items.length === 0 ? (
           <p>no items found</p>
         ) : (
           [
@@ -779,6 +803,9 @@ const App = () => {
       ) : (
         <div>
           <h3 style={{ marginTop: "40px", marginBottom: "20px" }}> combos</h3>
+          {closestCombos && combos.length > 0 && (
+            <p style={{ color: "#888", fontStyle: "italic" }}>no exact matches — showing closest combos</p>
+          )}
           {combos.map((combo, index) => (
             <div key={index} style={itemContainerStyle}>
               <div style={comboItemCardStyle}>

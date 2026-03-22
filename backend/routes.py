@@ -43,24 +43,48 @@ def get_items():
     if categories:
         filters.append(MenuItem.category.in_(categories))
 
+    macros = {
+        "calorieMin": request.args.get("calorieMin"),
+        "calorieMax": request.args.get("calorieMax"),
+        "proteinMin": request.args.get("proteinMin"),
+        "proteinMax": request.args.get("proteinMax"),
+        "fatMin":     request.args.get("fatMin"),
+        "fatMax":     request.args.get("fatMax"),
+        "carbMin":    request.args.get("carbMin"),
+        "carbMax":    request.args.get("carbMax"),
+    }
+
     # query by what is in the filters arr
     items_query = MenuItem.query.filter(and_(*filters))
     items = items_query.all()
-        
+
+    closest = False
+    if not items:
+        # fall back to all items for this restaurant/categories, scored by distance
+        closest = True
+        base_filters = [MenuItem.restaurant == restaurant]
+        if categories:
+            base_filters.append(MenuItem.category.in_(categories))
+        items = MenuItem.query.filter(and_(*base_filters)).all()
+        items.sort(key=lambda item: item_distance(item, macros))
+
     if num_items:
         if num_items < len(items):
-            items = random.sample(items, num_items)
-            
-    return jsonify([
-        {
-            "name": item.name,
-            "calories": item.calories,
-            "protein": item.protein,
-            "carbs": item.carbs,
-            "fat": item.fat,
-            "category": item.category
-        } for item in items
-    ])
+            items = random.sample(items, num_items) if not closest else items[:num_items]
+
+    return jsonify({
+        "items": [
+            {
+                "name": item.name,
+                "calories": item.calories,
+                "protein": item.protein,
+                "carbs": item.carbs,
+                "fat": item.fat,
+                "category": item.category
+            } for item in items
+        ],
+        "closest": closest,
+    })
   
 @routes.route('/api/make_combo')
 def make_combo():
@@ -107,6 +131,34 @@ def make_combo():
     ])
     
 from flask import request, jsonify
+
+def macro_distance(totals, macros):
+    """Sum of how much each macro falls outside its target range."""
+    d = 0
+    checks = [
+        (totals.get("calories"), "calorieMin", "calorieMax"),
+        (totals.get("protein"),  "proteinMin", "proteinMax"),
+        (totals.get("fat"),      "fatMin",     "fatMax"),
+        (totals.get("carbs"),    "carbMin",    "carbMax"),
+    ]
+    for val, min_key, max_key in checks:
+        if val is None:
+            continue
+        min_val = safe_float(macros.get(min_key))
+        max_val = safe_float(macros.get(max_key))
+        if min_val is not None and val < min_val:
+            d += min_val - val
+        elif max_val is not None and val > max_val:
+            d += val - max_val
+    return d
+
+def item_distance(item, macros):
+    return macro_distance({
+        "calories": item.calories or 0,
+        "protein":  item.protein  or 0,
+        "fat":      item.fat      or 0,
+        "carbs":    item.carbs    or 0,
+    }, macros)
 
 def safe_float(val):
     try:
@@ -197,6 +249,34 @@ def find_combos_dp(items, macros, max_items, collect_limit=500):
     dfs(0, 0, 0, 0, 0, 0, [])
     return valid_combos
 
+def find_closest_combos(items, macros, max_items, collect_limit=300):
+    """
+    When no exact combos exist, collect combos ignoring max constraints,
+    then sort by distance to the original target ranges.
+    """
+    # relax max constraints so the DFS doesn't prune on them
+    relaxed = dict(macros)
+    for key in ("calorieMax", "proteinMax", "fatMax", "carbMax"):
+        relaxed[key] = None
+
+    combos = find_combos_dp(items, relaxed, max_items, collect_limit)
+
+    if not combos:
+        # also relax min constraints as a last resort
+        empty = {k: None for k in macros}
+        combos = find_combos_dp(items, empty, max_items, collect_limit)
+
+    def combo_dist(combo):
+        return macro_distance({
+            "calories": sum(i.calories or 0 for i in combo),
+            "protein":  sum(i.protein  or 0 for i in combo),
+            "fat":      sum(i.fat      or 0 for i in combo),
+            "carbs":    sum(i.carbs    or 0 for i in combo),
+        }, macros)
+
+    combos.sort(key=combo_dist)
+    return combos
+
 @routes.route('/api/get_combos', methods=['POST'])
 def get_combos():
     data = request.get_json()
@@ -224,10 +304,26 @@ def get_combos():
 
     valid_combos = find_combos_dp(filtered_items, macros, max_items=max_items)
 
-    print(f"valid combos found: {len(valid_combos)}")
-    result = random.sample(valid_combos, min(num, len(valid_combos)))
+    closest = False
+    if not valid_combos:
+        closest = True
+        # use all items (not just individually valid ones) for the relaxed search
+        all_shuffled = list(all_items)
+        random.shuffle(all_shuffled)
+        all_shuffled.sort(key=lambda x: (x.calories or 0))
+        valid_combos = find_closest_combos(all_shuffled, macros, max_items)
 
-    return jsonify([format_combo(combo) for combo in result])
+    print(f"combos found: {len(valid_combos)}, closest={closest}")
+
+    if closest:
+        result = valid_combos[:num]
+    else:
+        result = random.sample(valid_combos, min(num, len(valid_combos)))
+
+    return jsonify({
+        "combos": [format_combo(combo) for combo in result],
+        "closest": closest,
+    })
 
 @routes.route('/api/get_restaurants')
 def get_restaurants():
