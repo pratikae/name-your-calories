@@ -2,7 +2,59 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 
-// sliders for filter range inputs
+// pastel versions of the original pink / blue / yellow
+const COLORS = ["#f9b3e3", "#a8d4f7", "#fef08a"];
+
+const pill = (active: boolean): React.CSSProperties => ({
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "5px 14px",
+  borderRadius: "99px",
+  border: `1.5px solid ${active ? "#f4a7d9" : "#e0e0e0"}`,
+  backgroundColor: active ? "#fce8f5" : "#fafafa",
+  color: active ? "#b0469a" : "#777",
+  cursor: "pointer",
+  fontSize: "0.82rem",
+  userSelect: "none",
+  fontWeight: active ? 500 : 400,
+  transition: "all 0.15s",
+});
+
+const inputStyle: React.CSSProperties = {
+  padding: "6px 10px",
+  borderRadius: "8px",
+  border: "1.5px solid #e0e0e0",
+  fontSize: "0.88rem",
+  outline: "none",
+  width: "90px",
+  color: "#444",
+};
+
+const btnStyle: React.CSSProperties = {
+  padding: "7px 18px",
+  borderRadius: "8px",
+  border: "1.5px solid #f4a7d9",
+  backgroundColor: "#fce8f5",
+  color: "#b0469a",
+  cursor: "pointer",
+  fontSize: "0.88rem",
+  fontWeight: 500,
+};
+
+const sectionStyle: React.CSSProperties = {
+  marginBottom: "20px",
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: "0.75rem",
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  color: "#aaa",
+  marginBottom: "8px",
+  display: "block",
+};
+
 const MacroRangeSlider = ({
   label,
   min,
@@ -21,154 +73,100 @@ const MacroRangeSlider = ({
   maxVal: number | "";
   setMinVal: (v: number | "") => void;
   setMaxVal: (v: number | "") => void;
-}) => {
-  return (
-    <div
-      style={{
-        margin: "20px 0",
-        display: "flex",
-        justifyContent: "center",
-        width: "100%",
-      }}
-    >
-      <div style={{ width: "60%" }}>
-        <label style={{ fontWeight: "bold" }}>{label}</label>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            marginTop: "4px",
-            flexWrap: "wrap",
-          }}
-        >
-          <input
-            type="number"
-            min={min}
-            max={max}
-            step={step}
-            value={minVal}
-            onChange={(e) =>
-              setMinVal(e.target.value === "" ? "" : Number(e.target.value))
-            }
-            style={{ width: "70px" }}
-          />
-          <input
-            type="range"
-            min={min}
-            max={max}
-            step={step}
-            value={minVal === "" ? min : minVal}
-            onChange={(e) => setMinVal(Number(e.target.value))}
-            style={{ flex: 1 }}
-          />
-          <span>to</span>
-          <input
-            type="range"
-            min={min}
-            max={max}
-            step={step}
-            value={maxVal === "" ? max : maxVal}
-            onChange={(e) => setMaxVal(Number(e.target.value))}
-            style={{ flex: 1 }}
-          />
-          <input
-            type="number"
-            min={min}
-            max={max}
-            step={step}
-            value={maxVal}
-            onChange={(e) =>
-              setMaxVal(e.target.value === "" ? "" : Number(e.target.value))
-            }
-            style={{ width: "70px" }}
-          />
-        </div>
+}) => (
+  <div style={{ margin: "14px 0", display: "flex", justifyContent: "center" }}>
+    <div style={{ width: "55%" }}>
+      <div style={{ fontSize: "0.75rem", color: "#aaa", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        {label}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <input
+          type="number" min={min} max={max} step={step} value={minVal}
+          onChange={(e) => setMinVal(e.target.value === "" ? "" : Number(e.target.value))}
+          style={{ ...inputStyle, width: "65px" }}
+        />
+        <input
+          type="range" min={min} max={max} step={step}
+          value={minVal === "" ? min : minVal}
+          onChange={(e) => setMinVal(Number(e.target.value))}
+          style={{ flex: 1, accentColor: "#f4a7d9" } as React.CSSProperties}
+        />
+        <span style={{ color: "#ccc", fontSize: "0.8rem" }}>–</span>
+        <input
+          type="range" min={min} max={max} step={step}
+          value={maxVal === "" ? max : maxVal}
+          onChange={(e) => setMaxVal(Number(e.target.value))}
+          style={{ flex: 1, accentColor: "#f4a7d9" } as React.CSSProperties}
+        />
+        <input
+          type="number" min={min} max={max} step={step} value={maxVal}
+          onChange={(e) => setMaxVal(e.target.value === "" ? "" : Number(e.target.value))}
+          style={{ ...inputStyle, width: "65px" }}
+        />
       </div>
     </div>
-  );
-};
+  </div>
+);
 
-const COLORS = ["#fa75d2", "#5cb6fa", "#faec52"];
-
-// pie chart for protein, carbs, and fats
-const MacroPieChart = ({
-  protein,
-  carbs,
-  fat,
-}: {
-  protein: number;
-  carbs: number;
-  fat: number;
-}) => {
+const MacroPieChart = ({ protein, carbs, fat }: { protein: number; carbs: number; fat: number }) => {
   const data = [
     { name: "protein", value: protein },
     { name: "carbs", value: carbs },
     { name: "fat", value: fat },
   ];
-
   return (
-    <PieChart width={200} height={200}>
-      <Pie
-        data={data}
-        dataKey="value"
-        nameKey="name"
-        cx="50%"
-        cy="50%"
-        outerRadius={65}
-        fill="#8884d8"
-        label
-      >
+    <PieChart width={180} height={180}>
+      <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60}>
         {data.map((_, index) => (
           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
         ))}
       </Pie>
       <Tooltip />
-      <Legend />
+      <Legend iconSize={10} wrapperStyle={{ fontSize: "0.75rem" }} />
     </PieChart>
   );
 };
 
 type MenuItem = {
-  name: string
-  calories: number
-  protein: number
-  fat: number
-  carbs: number
-  category: string
+  name: string;
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+  category: string;
 };
 
 type MacroLimits = {
-  calories?: number
-  protein?: number
-  fat?: number
-  carbs?: number
+  calories?: number;
+  protein?: number;
+  fat?: number;
+  carbs?: number;
 };
 
 type PinnedItem = {
-  menuItem: MenuItem
-  count: number
+  menuItem: MenuItem;
+  count: number;
 };
 
 const App = () => {
-  const filters = ["calories", "protein", "carbs", "fat"]
-  const [restaurant, setRestaurant] = useState("")
-  const [restaurants, setRestaurants] = useState<string[]>([])
-  const [items, setItems] = useState<MenuItem[]>([])
-  const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set())
-  const [minCalories, setMinCalories] = useState<number | "">("")
-  const [maxCalories, setMaxCalories] = useState<number | "">("")
-  const [minProtein, setMinProtein] = useState<number | "">("")
-  const [maxProtein, setMaxProtein] = useState<number | "">("")
-  const [minFat, setMinFat] = useState<number | "">("")
-  const [maxFat, setMaxFat] = useState<number | "">("")
-  const [minCarbs, setMinCarbs] = useState<number | "">("")
-  const [maxCarbs, setMaxCarbs] = useState<number | "">("")
-  const [hasFetched, setHasFetched] = useState(false)
-  const [categories, setCategories] = useState<string[]>([])
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
-  const [numItems, setNumItems] = useState<number | "">("")
-  const [makeCombo, setMakeCombo] = useState(false)
+  const filters = ["calories", "protein", "carbs", "fat"];
+  const [restaurant, setRestaurant] = useState("");
+  const [restaurants, setRestaurants] = useState<string[]>([]);
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set());
+  const [minCalories, setMinCalories] = useState<number | "">("");
+  const [maxCalories, setMaxCalories] = useState<number | "">("");
+  const [minProtein, setMinProtein] = useState<number | "">("");
+  const [maxProtein, setMaxProtein] = useState<number | "">("");
+  const [minFat, setMinFat] = useState<number | "">("");
+  const [maxFat, setMaxFat] = useState<number | "">("");
+  const [minCarbs, setMinCarbs] = useState<number | "">("");
+  const [maxCarbs, setMaxCarbs] = useState<number | "">("");
+  const [hasFetched, setHasFetched] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [numItems, setNumItems] = useState<number | "">("");
+  const [makeCombo, setMakeCombo] = useState(false);
   const [remainingMacros, setRemainingMacros] = useState<{
     calories?: number;
     protein?: number;
@@ -181,19 +179,14 @@ const App = () => {
   type ComboData = {
     items: string[];
     count: number;
-    total: {
-      calories: number;
-      protein: number;
-      fat: number;
-      carbs: number;
-    };
+    total: { calories: number; protein: number; fat: number; carbs: number };
   };
 
   const [combos, setCombos] = useState<ComboData[]>([]);
-  const [numCombos, setNumCombos] = useState<number | "">("")
-  const [maxItemsPerCombo, setMaxItemsPerCombo] = useState<number | "">(5)
-  const [closestItems, setClosestItems] = useState(false)
-  const [closestCombos, setClosestCombos] = useState(false)
+  const [numCombos, setNumCombos] = useState<number | "">("");
+  const [maxItemsPerCombo, setMaxItemsPerCombo] = useState<number | "">(5);
+  const [closestItems, setClosestItems] = useState(false);
+  const [closestCombos, setClosestCombos] = useState(false);
 
   const paramsSerializer = (params: any) => {
     const searchParams = new URLSearchParams();
@@ -208,21 +201,15 @@ const App = () => {
     return searchParams.toString();
   };
 
-  // fetching one item
   const fetchItems = async () => {
     try {
       const res = await axios.get("http://127.0.0.1:5050/api/items", {
         params: {
-          num: numItems,
-          restaurant,
-          calorieMin: minCalories,
-          calorieMax: maxCalories,
-          proteinMin: minProtein,
-          proteinMax: maxProtein,
-          fatMin: minFat,
-          fatMax: maxFat,
-          carbMin: minCarbs,
-          carbMax: maxCarbs,
+          num: numItems, restaurant,
+          calorieMin: minCalories, calorieMax: maxCalories,
+          proteinMin: minProtein, proteinMax: maxProtein,
+          fatMin: minFat, fatMax: maxFat,
+          carbMin: minCarbs, carbMax: maxCarbs,
           categories: Array.from(selectedCategories),
         },
         paramsSerializer,
@@ -240,21 +227,16 @@ const App = () => {
     }
   };
 
-  // fetching all combos
   const fetchCombos = async () => {
     try {
       const res = await axios.post("http://127.0.0.1:5050/api/get_combos", {
         restaurant,
         categories: Array.from(selectedCategories),
         macros: {
-          calorieMin: minCalories,
-          calorieMax: maxCalories,
-          proteinMin: minProtein,
-          proteinMax: maxProtein,
-          fatMin: minFat,
-          fatMax: maxFat,
-          carbMin: minCarbs,
-          carbMax: maxCarbs,
+          calorieMin: minCalories, calorieMax: maxCalories,
+          proteinMin: minProtein, proteinMax: maxProtein,
+          fatMin: minFat, fatMax: maxFat,
+          carbMin: minCarbs, carbMax: maxCarbs,
         },
         num: numCombos,
         maxItems: maxItemsPerCombo,
@@ -277,20 +259,9 @@ const App = () => {
   const calculateRemainingMacros = (
     selectedFilters: Set<string>,
     pinnedItems: PinnedItem[],
-    maxVals: {
-      calories: number | "";
-      protein: number | "";
-      fat: number | "";
-      carbs: number | "";
-    }
-  ): {
-    calories?: number;
-    protein?: number;
-    fat?: number;
-    carbs?: number;
-  } => {
+    maxVals: { calories: number | ""; protein: number | ""; fat: number | ""; carbs: number | "" }
+  ) => {
     const result: { [key: string]: number } = {};
-
     for (const macro of ["calories", "protein", "fat", "carbs"] as const) {
       if (selectedFilters.has(macro)) {
         const max = typeof maxVals[macro] === "number" ? maxVals[macro] : 0;
@@ -298,12 +269,11 @@ const App = () => {
         result[macro] = Math.max(0, max - used);
       }
     }
-
     return result;
   };
 
-  const calculateCurrentMacros = (pinnedItems: PinnedItem[]) => {
-    return pinnedItems.reduce(
+  const calculateCurrentMacros = (pinnedItems: PinnedItem[]) =>
+    pinnedItems.reduce(
       (acc, { menuItem: item, count }) => ({
         calories: (acc.calories ?? 0) + item.calories * count,
         protein: (acc.protein ?? 0) + item.protein * count,
@@ -312,60 +282,41 @@ const App = () => {
       }),
       {} as MacroLimits
     );
-  };
 
   const updateRemainingMacros = () => {
     const remaining = calculateRemainingMacros(selectedFilters, pinnedItems, {
-      calories: maxCalories,
-      protein: maxProtein,
-      fat: maxFat,
-      carbs: maxCarbs,
+      calories: maxCalories, protein: maxProtein, fat: maxFat, carbs: maxCarbs,
     });
     setRemainingMacros(remaining);
   };
 
-  // update remaining macros when pinned items or filters or max values change
   useEffect(() => {
     if (makeCombo && pinnedItems.length > 0) {
       updateRemainingMacros();
     } else {
-      // clear remaining macros if not combo mode or no pinned items
       setRemainingMacros({});
     }
   }, [pinnedItems, selectedFilters, maxCalories, maxProtein, maxFat, maxCarbs, makeCombo]);
 
-  // clear pinned items when makeCombo is unchecked
   useEffect(() => {
-    if (!makeCombo) {
-      setPinnedItems([]);
-    }
+    if (!makeCombo) setPinnedItems([]);
   }, [makeCombo]);
 
-  // fetch items with filters for combos, adjust filters for pins
   const fetchComboItems = async () => {
     const itemCount = cleanNum(numItems);
-
     const remaining = calculateRemainingMacros(selectedFilters, pinnedItems, {
-      calories: maxCalories,
-      protein: maxProtein,
-      fat: maxFat,
-      carbs: maxCarbs,
+      calories: maxCalories, protein: maxProtein, fat: maxFat, carbs: maxCarbs,
     });
-
     try {
       const res = await axios.get("http://127.0.0.1:5050/api/make_combo", {
         params: {
-          num: itemCount,
-          restaurant,
-          calorieMax: remaining.calories,
-          proteinMax: remaining.protein,
-          fatMax: remaining.fat,
-          carbMax: remaining.carbs,
+          num: itemCount, restaurant,
+          calorieMax: remaining.calories, proteinMax: remaining.protein,
+          fatMax: remaining.fat, carbMax: remaining.carbs,
           categories: Array.from(selectedCategories),
         },
         paramsSerializer,
       });
-
       const fullCombo = [
         ...pinnedItems.flatMap((p) => Array(p.count).fill(p.menuItem)),
         ...res.data,
@@ -387,19 +338,15 @@ const App = () => {
       const res = await axios.get("http://127.0.0.1:5050/api/get_restaurants");
       setRestaurants(res.data);
     } catch (err) {
-      console.error("error fetching menu:", err);
+      console.error("error fetching restaurants:", err);
       setRestaurants([]);
     }
   };
 
-  // fetch the food categories of the restuarant
   const fetchCategories = async () => {
     if (!restaurant) return;
-
     try {
-      const res = await axios.get("http://127.0.0.1:5050/api/categories", {
-        params: { restaurant },
-      });
+      const res = await axios.get("http://127.0.0.1:5050/api/categories", { params: { restaurant } });
       setCategories(res.data);
       setSelectedCategories(new Set(res.data));
     } catch (err) {
@@ -409,425 +356,319 @@ const App = () => {
     }
   };
 
-  useEffect(() => {
-    fetchCategories();
-  }, [restaurant]);
-
-  useEffect(() => {
-    fetchRestaurants();
-  }, []);
+  useEffect(() => { fetchCategories(); }, [restaurant]);
+  useEffect(() => { fetchRestaurants(); }, []);
 
   const currentMacros = calculateCurrentMacros(pinnedItems);
 
-  // handle pin checkbox change, supports duplicates
   const handlePinChange = (item: MenuItem, checked: boolean) => {
     setPinnedItems((prev) => {
       const existing = prev.find((p) => p.menuItem.name === item.name);
       if (checked) {
-        if (existing) {
-          // increment count
-          return prev.map((p) =>
-            p.menuItem.name === item.name ? { ...p, count: p.count + 1 } : p
-          );
-        } else {
-          // add new pinned item with count 1
-          return [...prev, { menuItem: item, count: 1 }];
-        }
-      } else {
-        // remove pinned item completely
-        return prev.filter((p) => p.menuItem.name !== item.name);
+        if (existing) return prev.map((p) => p.menuItem.name === item.name ? { ...p, count: p.count + 1 } : p);
+        return [...prev, { menuItem: item, count: 1 }];
       }
+      return prev.filter((p) => p.menuItem.name !== item.name);
     });
   };
 
-  // change count of pinned items with +/- buttons
   const changeItemCount = (itemName: string, newCount: number) => {
     if (newCount <= 0) {
       setPinnedItems((prev) => prev.filter((p) => p.menuItem.name !== itemName));
     } else {
-      setPinnedItems((prev) =>
-        prev.map((p) =>
-          p.menuItem.name === itemName ? { ...p, count: newCount } : p
-        )
-      );
+      setPinnedItems((prev) => prev.map((p) => p.menuItem.name === itemName ? { ...p, count: newCount } : p));
     }
   };
 
-  const itemContainerStyle: React.CSSProperties = {
-    display: "flex",
-    justifyContent: "center",
-    marginBottom: "20px",
+  const toggleFilter = (set: Set<string>, val: string, setter: (s: Set<string>) => void) => {
+    const next = new Set(set);
+    next.has(val) ? next.delete(val) : next.add(val);
+    setter(next);
   };
 
-  const itemCardStyle: React.CSSProperties = {
+  const cardStyle: React.CSSProperties = {
     display: "flex",
     justifyContent: "space-between",
-    width: "33%",
-    border: "1px solid #ddd",
-    borderRadius: "8px",
-    padding: "10px",
     alignItems: "center",
-    backgroundColor: "#f8f9fa", // slight background to distinguish from regular items
+    width: "600px",
+    maxWidth: "90vw",
+    borderRadius: "14px",
+    padding: "16px 20px",
+    backgroundColor: "#fff",
+    boxShadow: "0 2px 14px rgba(0,0,0,0.07)",
   };
 
-  const itemContentStyle: React.CSSProperties = {
+  const cardContentStyle: React.CSSProperties = {
     flex: 1,
     display: "flex",
     flexDirection: "column",
-    alignItems: "center",
-    textAlign: "center",
+    alignItems: "flex-start",
+    textAlign: "left",
+    paddingRight: "12px",
   };
 
-  const comboItemCardStyle: React.CSSProperties = {
-    display: "flex",
-    justifyContent: "space-between",
-    width: "33%",
-    border: "1px solid #ddd",
-    borderRadius: "8px",
-    padding: "10px",
-    alignItems: "center",
-    backgroundColor: "#f8f9fa", // slight background to distinguish from regular items
+  const macroRowStyle: React.CSSProperties = {
+    fontSize: "0.8rem",
+    color: "#999",
+    marginTop: "4px",
+  };
+
+  const categoryBadge: React.CSSProperties = {
+    display: "inline-block",
+    marginTop: "6px",
+    padding: "2px 10px",
+    borderRadius: "99px",
+    backgroundColor: "#fce8f5",
+    color: "#b0469a",
+    fontSize: "0.75rem",
+    fontWeight: 500,
   };
 
   return (
-    <div style={{ textAlign: "center", marginTop: "75px" }}>
-      <h2>welcome to Name Your Calories!</h2>
-      <br /> <br />
+    <div style={{
+      maxWidth: "760px",
+      margin: "0 auto",
+      padding: "48px 24px 80px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      color: "#333",
+    }}>
 
-      {/* choose restaurant */}
-      <div>
-        <label
-          htmlFor="restaurantChoice"
-          style={{ marginRight: "8px", fontWeight: "bold" }}
+      {/* header */}
+      <h1 style={{ fontSize: "1.5rem", fontWeight: 600, color: "#444", marginBottom: "36px" }}>
+        name your calories
+      </h1>
+
+      {/* restaurant */}
+      <div style={sectionStyle}>
+        <span style={labelStyle}>restaurant</span>
+        <select
+          value={restaurant}
+          onChange={(e) => setRestaurant(e.target.value)}
+          style={{ ...inputStyle, width: "auto", padding: "7px 12px" }}
         >
-          choose a restaurant:
-        </label>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            marginBottom: "10px",
-            justifyContent: "center",
-          }}
-        >
-          <select
-            key={restaurant}
-            id="restaurantChoice"
-            value={restaurant}
-            onChange={(e) => {
-              setRestaurant(e.target.value);
-            }}
-          >
-            <option value="">select from dropdown</option>
-            {restaurants.map((rest) => (
-              <option key={rest} value={rest}>
-                {rest}
-              </option>
-            ))}
-          </select>
-        </div>
+          <option value="">select a restaurant</option>
+          {restaurants.map((r) => <option key={r} value={r}>{r}</option>)}
+        </select>
       </div>
 
       {/* categories */}
       {categories.length > 0 && (
-        <div>
-          <h4>include categories:</h4>
-          {categories.map((cat) => (
-            <label key={cat} style={{ marginRight: "10px" }}>
-              <input
-                type="checkbox"
-                checked={selectedCategories.has(cat)}
-                onChange={() => {
-                  setSelectedCategories((prev) => {
-                    const newSet = new Set(prev);
-                    if (newSet.has(cat)) newSet.delete(cat);
-                    else newSet.add(cat);
-                    return newSet;
-                  });
-                }}
-              />
-              {cat}
-            </label>
-          ))}
+        <div style={sectionStyle}>
+          <span style={labelStyle}>categories</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+            {categories.map((cat) => (
+              <label key={cat} style={pill(selectedCategories.has(cat))}>
+                <input
+                  type="checkbox"
+                  checked={selectedCategories.has(cat)}
+                  onChange={() => toggleFilter(selectedCategories, cat, setSelectedCategories)}
+                  style={{ display: "none" }}
+                />
+                {cat}
+              </label>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* filters */}
-      <div>
-        <h4>include macro filters: </h4>
-        {filters.map((filter) => (
-          <label key={filter} style={{ marginRight: "10px" }}>
-            <input
-              type="checkbox"
-              checked={selectedFilters.has(filter)}
-              onChange={() => {
-                setSelectedFilters((prev) => {
-                  const newSet = new Set(prev);
-                  if (newSet.has(filter)) newSet.delete(filter);
-                  else newSet.add(filter);
-                  return newSet;
-                });
-              }}
-            />
-            {filter}
-          </label>
-        ))}
+      {/* macro filters */}
+      <div style={sectionStyle}>
+        <span style={labelStyle}>macro filters</span>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+          {filters.map((f) => (
+            <label key={f} style={pill(selectedFilters.has(f))}>
+              <input
+                type="checkbox"
+                checked={selectedFilters.has(f)}
+                onChange={() => toggleFilter(selectedFilters, f, setSelectedFilters)}
+                style={{ display: "none" }}
+              />
+              {f}
+            </label>
+          ))}
+        </div>
+
+        {selectedFilters.has("calories") && (
+          <MacroRangeSlider label="calories" min={0} max={2000} step={50}
+            minVal={minCalories} maxVal={maxCalories}
+            setMinVal={setMinCalories} setMaxVal={setMaxCalories} />
+        )}
+        {selectedFilters.has("protein") && (
+          <MacroRangeSlider label="protein" min={0} max={150} step={5}
+            minVal={minProtein} maxVal={maxProtein}
+            setMinVal={setMinProtein} setMaxVal={setMaxProtein} />
+        )}
+        {selectedFilters.has("carbs") && (
+          <MacroRangeSlider label="carbs" min={0} max={300} step={5}
+            minVal={minCarbs} maxVal={maxCarbs}
+            setMinVal={setMinCarbs} setMaxVal={setMaxCarbs} />
+        )}
+        {selectedFilters.has("fat") && (
+          <MacroRangeSlider label="fat" min={0} max={100} step={5}
+            minVal={minFat} maxVal={maxFat}
+            setMinVal={setMinFat} setMaxVal={setMaxFat} />
+        )}
       </div>
 
-      {/* sliders */}
-      {selectedFilters.has("calories") && (
-        <MacroRangeSlider
-          label="calories"
-          min={0}
-          max={2000}
-          step={50}
-          minVal={minCalories}
-          maxVal={maxCalories}
-          setMinVal={setMinCalories}
-          setMaxVal={setMaxCalories}
-        />
-      )}
-      {selectedFilters.has("protein") && (
-        <MacroRangeSlider
-          label="protein"
-          min={0}
-          max={150}
-          step={5}
-          minVal={minProtein}
-          maxVal={maxProtein}
-          setMinVal={setMinProtein}
-          setMaxVal={setMaxProtein}
-        />
-      )}
-      {selectedFilters.has("carbs") && (
-        <MacroRangeSlider
-          label="carbs"
-          min={0}
-          max={300}
-          step={5}
-          minVal={minCarbs}
-          maxVal={maxCarbs}
-          setMinVal={setMinCarbs}
-          setMaxVal={setMaxCarbs}
-        />
-      )}
-      {selectedFilters.has("fat") && (
-        <MacroRangeSlider
-          label="fat"
-          min={0}
-          max={100}
-          step={5}
-          minVal={minFat}
-          maxVal={maxFat}
-          setMinVal={setMinFat}
-          setMaxVal={setMaxFat}
-        />
-      )}
+      {/* actions */}
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px", marginBottom: "28px" }}>
+        <label style={pill(makeCombo)}>
+          <input type="checkbox" checked={makeCombo} onChange={(e) => setMakeCombo(e.target.checked)} style={{ display: "none" }} />
+          combo mode
+        </label>
 
-      <br/> 
+        <span style={{ color: "#ddd" }}>|</span>
 
-      <label style={{ marginLeft: "10px" }}>
         <input
-          type="checkbox"
-          checked={makeCombo}
-          onChange={(e) => setMakeCombo(e.target.checked)}
+          type="number" value={numItems} placeholder="# items"
+          onChange={(e) => setNumItems(e.target.value === "" ? "" : Number(e.target.value))}
+          style={inputStyle}
         />
-        make combo
-      </label>
+        <button onClick={() => makeCombo ? fetchComboItems() : fetchItems()} style={btnStyle}>
+          shuffle
+        </button>
 
-      <br /> <br />
-      <input type="number" value={numItems}
-        onChange={(e) =>
-          setNumItems(e.target.value === "" ? "" : Number(e.target.value))
-        }
-        placeholder="items in shuffle res"
-      />
-      <span></span>
-      <button onClick={() => (makeCombo ? fetchComboItems() : fetchItems())}>
-        shuffle items
-      </button>
-      <span style={{ margin: "0 10px" }}> or </span>
-      <input type="number" value={numCombos}
-        onChange={(e) =>
-          setNumCombos(e.target.value === "" ? "" : Number(e.target.value))
-        }
-        placeholder="# of combos"
-      />
-      <span></span>
-      <input
-        type="number"
-        min={2}
-        value={maxItemsPerCombo}
-        onChange={(e) =>
-          setMaxItemsPerCombo(e.target.value === "" ? "" : Number(e.target.value))
-        }
-        placeholder="max items per combo"
-        style={{ width: "130px" }}
-      />
-      <span></span>
-      <button onClick={fetchCombos}>get combos</button>
+        <span style={{ color: "#ddd" }}>|</span>
 
-      <br /> <br />
+        <input
+          type="number" value={numCombos} placeholder="# combos"
+          onChange={(e) => setNumCombos(e.target.value === "" ? "" : Number(e.target.value))}
+          style={inputStyle}
+        />
+        <input
+          type="number" min={2} value={maxItemsPerCombo} placeholder="max items/combo"
+          onChange={(e) => setMaxItemsPerCombo(e.target.value === "" ? "" : Number(e.target.value))}
+          style={{ ...inputStyle, width: "110px" }}
+        />
+        <button onClick={fetchCombos} style={btnStyle}>
+          get combos
+        </button>
+      </div>
 
-      {/* pinned items with count and +/- buttons */}
+      {/* pinned items */}
       {makeCombo && pinnedItems.length > 0 && (
-        <div style={{ marginTop: "20px", maxWidth: 500, marginLeft: "auto", marginRight: "auto" }}>
-          <h3>pinned items</h3>
+        <div style={{ marginBottom: "20px", padding: "16px 20px", borderRadius: "12px", backgroundColor: "#fdf5fb", border: "1px solid #f4d4ec" }}>
+          <div style={{ ...labelStyle, marginBottom: "12px" }}>pinned items</div>
           {pinnedItems.map(({ menuItem: item, count }) => (
-            <div
-              key={item.name}
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: "10px",
-                marginBottom: "8px",
-              }}
-            >
-              {/* decrease item count by one */}
-              <span style={{ flex: 1 }}>{item.name}</span>
-              <button onClick={() => changeItemCount(item.name, count - 1)} disabled={count <= 1}>
-                -
-              </button>
-              <span>{count}</span>
-              {/* increase item count by one */}
-              <button onClick={() => changeItemCount(item.name, count + 1)}>
-                +
-              </button>
-
-              {/* delete all instances of the item */}
-              <button style={{ color: 'red' }} onClick={() => {
-                  setPinnedItems((prev) =>
-                    prev.filter((p) => p.menuItem.name !== item.name)
-                  );
-                }}
-              >
-                delete
+            <div key={item.name} style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+              <span style={{ flex: 1, fontSize: "0.9rem" }}>{item.name}</span>
+              <button onClick={() => changeItemCount(item.name, count - 1)} disabled={count <= 1}
+                style={{ ...btnStyle, padding: "3px 10px" }}>−</button>
+              <span style={{ fontSize: "0.9rem", minWidth: "16px", textAlign: "center" }}>{count}</span>
+              <button onClick={() => changeItemCount(item.name, count + 1)}
+                style={{ ...btnStyle, padding: "3px 10px" }}>+</button>
+              <button onClick={() => setPinnedItems((prev) => prev.filter((p) => p.menuItem.name !== item.name))}
+                style={{ ...btnStyle, border: "1.5px solid #f4c0c0", backgroundColor: "#fff5f5", color: "#c06060", padding: "3px 10px" }}>
+                ✕
               </button>
             </div>
           ))}
         </div>
       )}
 
-      {/* current and remaining macros only if making a combo and something is pinned */}
+      {/* current / remaining macros */}
       {makeCombo && pinnedItems.length > 0 && (
-        <div
-          style={{
-            marginTop: "20px",
-            display: "flex",
-            justifyContent: "center",
-            gap: "40px",
-            width: "100%",
-          }}
-        >
-          {/* current Macros */}
-          <div style={{ textAlign: "center" }}>
-            <h4 style={{ marginBottom: "8px" }}>current macros</h4>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              <li>calories: {currentMacros.calories}</li>
-              <li>protein: {currentMacros.protein}</li>
-              <li>fat: {currentMacros.fat}</li>
-              <li>carbs: {currentMacros.carbs}</li>
-            </ul>
+        <div style={{ display: "flex", gap: "32px", marginBottom: "28px", fontSize: "0.85rem" }}>
+          <div>
+            <div style={labelStyle}>current</div>
+            <div style={{ color: "#555", lineHeight: 1.8 }}>
+              <div>{currentMacros.calories} cal</div>
+              <div>P {currentMacros.protein}g · C {currentMacros.carbs}g · F {currentMacros.fat}g</div>
+            </div>
           </div>
-
-          {/* remaining Macros */}
-          <div style={{ textAlign: "center" }}>
-            <h4 style={{ marginBottom: "8px" }}>remaining macros</h4>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {maxCalories !== "" && <li>calories: {remainingMacros.calories}</li>}
-              {maxProtein !== "" && <li>protein: {remainingMacros.protein}</li>}
-              {maxFat !== "" && <li>fat: {remainingMacros.fat}</li>}
-              {maxCarbs !== "" && <li>carbs: {remainingMacros.carbs}</li>}
-            </ul>
-          </div>
+          {Object.keys(remainingMacros).length > 0 && (
+            <div>
+              <div style={labelStyle}>remaining</div>
+              <div style={{ color: "#555", lineHeight: 1.8 }}>
+                {maxCalories !== "" && <div>{remainingMacros.calories} cal</div>}
+                {(maxProtein !== "" || maxFat !== "" || maxCarbs !== "") && (
+                  <div>
+                    {maxProtein !== "" && `P ${remainingMacros.protein}g`}
+                    {maxCarbs !== "" && ` · C ${remainingMacros.carbs}g`}
+                    {maxFat !== "" && ` · F ${remainingMacros.fat}g`}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      <br />
-
       {/* items */}
-      <div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
         {hasFetched && !showCombos && closestItems && items.length > 0 && (
-        <p style={{ color: "#888", fontStyle: "italic" }}>no exact matches - showing closest items</p>
-      )}
-      {hasFetched && !showCombos && items.length === 0 ? (
-          <p>no items found</p>
+          <p style={{ color: "#bbb", fontStyle: "italic", fontSize: "0.85rem", margin: "0 0 4px" }}>
+            no exact matches — showing closest items
+          </p>
+        )}
+        {hasFetched && !showCombos && items.length === 0 ? (
+          <p style={{ color: "#bbb", fontSize: "0.9rem" }}>no items found</p>
         ) : (
           [
             ...Array.from(
               new Map(
                 pinnedItems.map((pinnedItem) => {
-                  const fullItem =
-                    items.find((i) => i.name === pinnedItem.menuItem.name) ||
-                    pinnedItem.menuItem;
+                  const fullItem = items.find((i) => i.name === pinnedItem.menuItem.name) || pinnedItem.menuItem;
                   return [pinnedItem.menuItem.name, fullItem];
                 })
               ).values()
             ),
-            // plus all items that are not pinned
-            ...items.filter(
-              (item) =>
-                !pinnedItems.some((p) => p.menuItem.name === item.name)
-            ),
+            ...items.filter((item) => !pinnedItems.some((p) => p.menuItem.name === item.name)),
           ].map((item: any, index) => (
-            <div key={index} style={itemContainerStyle}>
-              <div style={itemCardStyle}>
-                <div style={itemContentStyle}>
-                  {/* checkbox to pin items */}
-                  {makeCombo && (
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={pinnedItems.some((p) => p.menuItem.name === item.name)}
-                        onChange={(e) => handlePinChange(item, e.target.checked)}
-                      />
-                      pin item
-                    </label>
-                  )}
-                  <h3 style={{ marginBottom: "8px" }}>{item.name}</h3>
-                  <p style={{ marginBottom: "4px" }}>calories: {item.calories}</p>
-                  <p style={{ marginBottom: "4px" }}>category: {item.category}</p>
+            <div key={index} style={cardStyle}>
+              <div style={cardContentStyle}>
+                {makeCombo && (
+                  <label style={{ ...pill(pinnedItems.some((p) => p.menuItem.name === item.name)), marginBottom: "10px" }}>
+                    <input
+                      type="checkbox"
+                      checked={pinnedItems.some((p) => p.menuItem.name === item.name)}
+                      onChange={(e) => handlePinChange(item, e.target.checked)}
+                      style={{ display: "none" }}
+                    />
+                    {pinnedItems.some((p) => p.menuItem.name === item.name) ? "pinned" : "pin"}
+                  </label>
+                )}
+                <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "#333" }}>{item.name}</div>
+                <div style={macroRowStyle}>
+                  {item.calories} cal · P {item.protein}g · C {item.carbs}g · F {item.fat}g
                 </div>
-                <MacroPieChart protein={item.protein} carbs={item.carbs} fat={item.fat} />
+                {item.category && <span style={categoryBadge}>{item.category}</span>}
               </div>
+              <MacroPieChart protein={item.protein} carbs={item.carbs} fat={item.fat} />
             </div>
           ))
         )}
       </div>
 
       {/* combos */}
-      {showCombos && combos.length == 0 ? (
-        <p>no combos found</p>
-      ) : (
-        <div>
-          <h3 style={{ marginTop: "40px", marginBottom: "20px" }}> combos</h3>
+      {showCombos && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", marginTop: "32px" }}>
+          <div style={{ ...labelStyle, alignSelf: "flex-start", marginLeft: "calc(50% - 300px)" }}>combos</div>
           {closestCombos && combos.length > 0 && (
-            <p style={{ color: "#888", fontStyle: "italic" }}>no exact matches — showing closest combos</p>
+            <p style={{ color: "#bbb", fontStyle: "italic", fontSize: "0.85rem", margin: "0 0 4px" }}>
+              no exact matches — showing closest combos
+            </p>
           )}
-          {combos.map((combo, index) => (
-            <div key={index} style={itemContainerStyle}>
-              <div style={comboItemCardStyle}>
-                <div style={itemContentStyle}>
-                  <h3 style={{ marginBottom: "8px" }}>combo {index + 1} - {combo.total.calories} cal </h3>
-                  <div style={{ marginBottom: "8px" }}>
-                    <strong>items ({combo.count}):</strong>
-                    <ul style={{ textAlign: "left", marginTop: "4px", paddingLeft: "20px" }}>
-                      {combo.items.map((itemName, idx) => (
-                        <li key={idx}>{itemName}</li>
-                      ))}
-                    </ul>
+          {combos.length === 0 ? (
+            <p style={{ color: "#bbb", fontSize: "0.9rem" }}>no combos found</p>
+          ) : (
+            combos.map((combo, index) => (
+              <div key={index} style={cardStyle}>
+                <div style={cardContentStyle}>
+                  <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "#333", marginBottom: "6px" }}>
+                    combo {index + 1} — {combo.total.calories} cal
+                  </div>
+                  <ul style={{ margin: "0 0 6px", paddingLeft: "16px", fontSize: "0.85rem", color: "#555", lineHeight: 1.7 }}>
+                    {combo.items.map((name, idx) => <li key={idx}>{name}</li>)}
+                  </ul>
+                  <div style={macroRowStyle}>
+                    P {combo.total.protein}g · C {combo.total.carbs}g · F {combo.total.fat}g
                   </div>
                 </div>
-                <MacroPieChart 
-                  protein={combo.total.protein} 
-                  carbs={combo.total.carbs} 
-                  fat={combo.total.fat} 
-                />
+                <MacroPieChart protein={combo.total.protein} carbs={combo.total.carbs} fat={combo.total.fat} />
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       )}
 
