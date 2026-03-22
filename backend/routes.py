@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from database import db, MenuItem
 from sqlalchemy import desc, and_
+from pdf_cache import scrape_nutritionix_menu, cache_restaurant
 import re
 import os
 import requests
@@ -363,12 +364,46 @@ def get_categories():
     )
     return jsonify(sorted({cat for (cat,) in categories if cat}))
 
-# clean name to use in url    
+# clean name to use in url
 def clean_name(name):
     name = name.lower()
     name = re.sub(r'[^\w\s-]', '', name)  # remove punctuation except dash/space
     name = re.sub(r'\s+', '-', name.strip())  # spaces -> dash
-    return name    
-    
-    
+    return name
+
+
+@routes.route('/api/add_restaurant', methods=['POST'])
+def add_restaurant():
+    data = request.get_json()
+    slug = data.get("slug", "").strip()
+    if not slug:
+        return jsonify({"error": "slug is required"}), 400
+
+    slug = clean_name(slug)
+
+    # check if already cached (match by slug-derived name heuristic)
+    existing = db.session.query(MenuItem.restaurant).filter(
+        MenuItem.restaurant.ilike(slug.replace("-", " "))
+    ).first()
+    if existing:
+        return jsonify({"error": f"'{existing[0]}' is already cached"}), 409
+
+    try:
+        restaurant_name, items = scrape_nutritionix_menu(slug)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        return jsonify({"error": f"Failed to scrape menu: {str(e)}"}), 500
+
+    # double-check by canonical name in case slug->name differs from DB
+    existing_by_name = db.session.query(MenuItem.restaurant).filter(
+        MenuItem.restaurant.ilike(restaurant_name)
+    ).first()
+    if existing_by_name:
+        return jsonify({"error": f"'{existing_by_name[0]}' is already cached"}), 409
+
+    cache_restaurant(restaurant_name, items)
+    return jsonify({"restaurant": restaurant_name, "items_cached": len(items)})
+
+
 

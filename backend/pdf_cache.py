@@ -1,10 +1,13 @@
 import pdfplumber
 import os
+import re
+import requests
+from bs4 import BeautifulSoup
 from database import db, MenuItem
-from app import app
 
 PDF_DIR = "pdf_menus"
 
+# initial files
 restaurant_files = {
     "taco bell": "taco-bell.pdf",
     "chick-fil-a": "chick-fil-a.pdf",
@@ -15,7 +18,86 @@ restaurant_files = {
 
 disallowed_categories = ["at participating locations", "catering", "trays"]
 
-import re
+# get restaurant's full menu from nutritionix.com/{slug}/menu/premium
+# returns (restaurant_name, items_list)
+def scrape_nutritionix_menu(slug):
+    url = f"https://www.nutritionix.com/{slug}/menu/premium"
+    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
+    r = requests.get(url, headers=headers, timeout=15)
+    if r.status_code != 200:
+        raise ValueError(f"Nutritionix returned {r.status_code} for '{slug}'")
+
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    # get the restaurant name from the page
+    title = soup.title.string if soup.title else ""
+    title_match = re.match(r"^(.+?)\s+-\s+(Full|Interactive) Nutrition", title)
+    restaurant_name = title_match.group(1).strip() if title_match else slug.replace("-", " ").title()
+
+    # get the column ids for nutrition info
+    col_ids = {}
+    for th in soup.find_all("th", id=re.compile(r"^inmGrid_c\d+$")):
+        text = th.get_text(strip=True).lower()
+        col_id = th["id"].split("_")[1]  # e.g. "c1"
+        if "calorie" in text:
+            col_ids["calories"] = col_id
+        elif "total fat" in text:
+            col_ids["fat"] = col_id
+        elif "total carbohydrate" in text:
+            col_ids["carbs"] = col_id
+        elif "protein" in text:
+            col_ids["protein"] = col_id
+
+    if not col_ids:
+        raise ValueError(f"could not detect nutrition columns for '{slug}'")
+
+    items = []
+    current_category = "Other"
+
+    # go through all <tr> elements in order
+    for row in soup.find_all("tr"):
+        if "subCategory" in (row.get("class") or []):
+            h3 = row.find("h3")
+            if h3:
+                current_category = h3.get_text(strip=True)
+            continue
+
+        name_td = row.find("td", class_="al")
+        if not name_td:
+            continue
+
+        name_link = name_td.find("a", class_="nmItem")
+        if not name_link:
+            continue
+        name = name_link.get("title") or name_link.get_text(strip=True)
+
+        def get_col(col_id):
+            td = row.find("td", headers=f"inmGrid_{col_id}")
+            return td.get_text(strip=True) if td else None
+
+        try:
+            calories = int(get_col(col_ids["calories"]).replace(",", ""))
+            fat      = float(get_col(col_ids["fat"]).replace(",", ""))
+            carbs    = float(get_col(col_ids["carbs"]).replace(",", ""))
+            protein  = float(get_col(col_ids["protein"]).replace(",", ""))
+        except (TypeError, ValueError, AttributeError):
+            continue
+
+        items.append({
+            "name": name,
+            "restaurant": restaurant_name,
+            "category": current_category,
+            "calories": calories,
+            "fat": fat,
+            "carbs": carbs,
+            "protein": protein,
+        })
+
+    if not items:
+        raise ValueError(f"No menu items found for '{slug}' — restaurant may not exist on Nutritionix")
+
+    return restaurant_name, items
+
 def get_restaurant_name(filepath):
     with pdfplumber.open(filepath) as pdf:
         first_page_text = pdf.pages[0].extract_text()
@@ -100,6 +182,7 @@ def parse_menu_pdf(filepath):
                     except (ValueError, IndexError): # skip bad stuff that didnt get caught somehow
                         continue 
 
+                    restaurant_name = restaurant_name[0].upper() + restaurant_name[1:]
                     menu_items.append({
                         "name": name,
                         "restaurant": restaurant_name,
@@ -112,31 +195,38 @@ def parse_menu_pdf(filepath):
 
     return menu_items
 
-def cache_restaurants():
+def cache_restaurant(restaurant_name, items):
+    print(f"caching {restaurant_name}")
+    for item in items:
+        db.session.add(MenuItem(
+            restaurant=restaurant_name,
+            name=item["name"],
+            calories=item["calories"],
+            fat=item["fat"],
+            carbs=item["carbs"],
+            protein=item["protein"],
+            category=item["category"]
+        ))
+    db.session.commit()
+    print("cached new restaurant")
+
+def cache_first_restaurants(app):
     with app.app_context():
         for restaurant, filename in restaurant_files.items():
-            print(f"caching {restaurant}")
+            print(f"parsing {restaurant}")
             full_path = f"{PDF_DIR}/{filename}"
             items = parse_menu_pdf(full_path)
-            for item in items:
-                db.session.add(MenuItem(
-                    restaurant=restaurant,
-                    name=item["name"],
-                    calories=item["calories"],
-                    fat=item["fat"],
-                    carbs=item["carbs"],
-                    protein=item["protein"],
-                    category=item["category"]
-                ))
+            restaurant_name = items[0]["restaurant"] if items else restaurant
+            cache_restaurant(restaurant_name, items)
         db.session.commit()
         print("cached all restaurants")
 
 if __name__ == "__main__":
-    cache_restaurants()
-    
-    # just for checking the names
-    # for key, filename in restaurant_files.items():
-    #     path = os.path.join(PDF_DIR, filename)
-    #     name = get_restaurant_name(path)
-    #     print(name)
-    
+    from flask import Flask
+    from dotenv import load_dotenv
+    load_dotenv()
+    _app = Flask(__name__)
+    _app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///menu_items.db'
+    _app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    db.init_app(_app)
+    cache_first_restaurants(_app)

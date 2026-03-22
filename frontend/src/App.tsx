@@ -187,6 +187,9 @@ const App = () => {
   const [maxItemsPerCombo, setMaxItemsPerCombo] = useState<number | "">();
   const [closestItems, setClosestItems] = useState(false);
   const [closestCombos, setClosestCombos] = useState(false);
+  const [addSlug, setAddSlug] = useState("");
+  const [addStatus, setAddStatus] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [addLoading, setAddLoading] = useState(false);
 
   type CategoryLimit = { min: number | ""; max: number | "" };
   const [categoryLimits, setCategoryLimits] = useState<Record<string, CategoryLimit>>({});
@@ -354,6 +357,23 @@ const App = () => {
     }
   };
 
+  const addRestaurant = async () => {
+    if (!addSlug.trim()) return;
+    setAddLoading(true);
+    setAddStatus(null);
+    try {
+      const res = await axios.post("http://127.0.0.1:5050/api/add_restaurant", { slug: addSlug.trim() });
+      setAddStatus({ msg: `cached ${res.data.restaurant} (${res.data.items_cached} items)`, ok: true });
+      setAddSlug("");
+      fetchRestaurants();
+    } catch (err: any) {
+      const msg = err.response?.data?.error || "failed to add restaurant";
+      setAddStatus({ msg, ok: false });
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
   const fetchCategories = async () => {
     if (!restaurant) return;
     try {
@@ -461,6 +481,26 @@ const App = () => {
           <option value="">select a restaurant</option>
           {restaurants.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
+      </div>
+
+      {/* add restaurant */}
+      <div style={{ ...sectionStyle, display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+        <input
+          type="text"
+          placeholder="new restaurant (e.g. wendy's)"
+          value={addSlug}
+          onChange={(e) => setAddSlug(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addRestaurant()}
+          style={{ ...inputStyle, width: "200px" }}
+        />
+        <button onClick={addRestaurant} disabled={addLoading} style={btnStyle}>
+          {addLoading ? "loading..." : "add restaurant"}
+        </button>
+        {addStatus && (
+          <span style={{ fontSize: "0.82rem", color: addStatus.ok ? "#6abf6a" : "#e05c5c" }}>
+            {addStatus.msg}
+          </span>
+        )}
       </div>
 
       {/* categories */}
