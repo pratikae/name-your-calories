@@ -184,9 +184,12 @@ const App = () => {
 
   const [combos, setCombos] = useState<ComboData[]>([]);
   const [numCombos, setNumCombos] = useState<number | "">("");
-  const [maxItemsPerCombo, setMaxItemsPerCombo] = useState<number | "">(5);
+  const [maxItemsPerCombo, setMaxItemsPerCombo] = useState<number | "">();
   const [closestItems, setClosestItems] = useState(false);
   const [closestCombos, setClosestCombos] = useState(false);
+
+  type CategoryLimit = { min: number | ""; max: number | "" };
+  const [categoryLimits, setCategoryLimits] = useState<Record<string, CategoryLimit>>({});
 
   const paramsSerializer = (params: any) => {
     const searchParams = new URLSearchParams();
@@ -240,6 +243,14 @@ const App = () => {
         },
         num: numCombos,
         maxItems: maxItemsPerCombo,
+        categoryLimits: Object.fromEntries(
+          Object.entries(categoryLimits)
+            .filter(([, lim]) => lim.min !== "" || lim.max !== "")
+            .map(([cat, lim]) => [cat, {
+              ...(lim.min !== "" ? { min: lim.min } : {}),
+              ...(lim.max !== "" ? { max: lim.max } : {}),
+            }])
+        ),
       });
       setCombos(res.data.combos);
       setClosestCombos(res.data.closest);
@@ -349,6 +360,7 @@ const App = () => {
       const res = await axios.get("http://127.0.0.1:5050/api/categories", { params: { restaurant } });
       setCategories(res.data);
       setSelectedCategories(new Set(res.data));
+      setCategoryLimits(Object.fromEntries(res.data.map((c: string) => [c, { min: "", max: "" }])));
     } catch (err) {
       console.error("error fetching categories:", err);
       setCategories([]);
@@ -466,6 +478,41 @@ const App = () => {
                 />
                 {cat}
               </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* combo category limits */}
+      {selectedCategories.size > 0 && (
+        <div style={sectionStyle}>
+          <span style={labelStyle}>combo category limits</span>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 1fr", alignItems: "center", gap: "6px 16px", maxWidth: "340px" }}>
+            <div style={{ fontSize: "0.72rem", color: "#ccc", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }} />
+            <div style={{ fontSize: "0.72rem", color: "#ccc", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>min</div>
+            <div style={{ fontSize: "0.72rem", color: "#ccc", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>max</div>
+            {categories.filter((cat) => selectedCategories.has(cat)).map((cat) => (
+              <React.Fragment key={cat}>
+                <span style={{ fontSize: "0.85rem", color: "#666" }}>{cat}</span>
+                <input
+                  type="number" min={0} placeholder="—"
+                  value={categoryLimits[cat]?.min ?? ""}
+                  onChange={(e) => setCategoryLimits((prev) => ({
+                    ...prev,
+                    [cat]: { ...prev[cat], min: e.target.value === "" ? "" : Number(e.target.value) },
+                  }))}
+                  style={{ ...inputStyle, width: "60px", textAlign: "center" }}
+                />
+                <input
+                  type="number" min={0} placeholder="—"
+                  value={categoryLimits[cat]?.max ?? ""}
+                  onChange={(e) => setCategoryLimits((prev) => ({
+                    ...prev,
+                    [cat]: { ...prev[cat], max: e.target.value === "" ? "" : Number(e.target.value) },
+                  }))}
+                  style={{ ...inputStyle, width: "60px", textAlign: "center" }}
+                />
+              </React.Fragment>
             ))}
           </div>
         </div>

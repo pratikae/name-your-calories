@@ -132,8 +132,8 @@ def make_combo():
     
 from flask import request, jsonify
 
+#  how much each macro is outside its target range
 def macro_distance(totals, macros):
-    """Sum of how much each macro falls outside its target range."""
     d = 0
     checks = [
         (totals.get("calories"), "calorieMin", "calorieMax"),
@@ -192,8 +192,8 @@ def format_combo(combo):
         }
     }
 
-#  dfs with early pruning 
-def find_combos_dp(items, macros, max_items, collect_limit=500):
+# dfs with early pruning 
+def find_combos_dp(items, macros, max_items, category_limits=None, collect_limit=500):
     cal_max  = safe_float(macros.get("calorieMax"))
     prot_max = safe_float(macros.get("proteinMax"))
     fat_max  = safe_float(macros.get("fatMax"))
@@ -202,6 +202,7 @@ def find_combos_dp(items, macros, max_items, collect_limit=500):
     prot_min = safe_float(macros.get("proteinMin"))
     fat_min  = safe_float(macros.get("fatMin"))
     carb_min = safe_float(macros.get("carbMin"))
+    cat_lim  = category_limits or {}
 
     valid_combos = []
     n = len(items)
@@ -213,12 +214,19 @@ def find_combos_dp(items, macros, max_items, collect_limit=500):
         if carb_min is not None and carb < carb_min: return False
         return True
 
-    def dfs(start, count, cal, prot, fat, carb, combo):
+    def meets_category_min(cat_counts):
+        for cat, limits in cat_lim.items():
+            min_cat = limits.get("min")
+            if min_cat is not None and cat_counts.get(cat, 0) < min_cat:
+                return False
+        return True
+
+    # cat_counts is mutated in-place and undone after each recursive call
+    def dfs(start, count, cal, prot, fat, carb, combo, cat_counts):
         if len(valid_combos) >= collect_limit:
             return
 
-        # a combo needs at least 2 items
-        if count >= 2 and meets_min(cal, prot, fat, carb):
+        if count >= 2 and meets_min(cal, prot, fat, carb) and meets_category_min(cat_counts):
             valid_combos.append(list(combo))
             if len(valid_combos) >= collect_limit:
                 return
@@ -231,40 +239,48 @@ def find_combos_dp(items, macros, max_items, collect_limit=500):
                 return
 
             item = items[i]
+            cat = item.category or ""
+
+            # prune if this category already hit its max
+            if cat_lim.get(cat, {}).get("max") is not None:
+                if cat_counts.get(cat, 0) >= cat_lim[cat]["max"]:
+                    continue
+
             new_cal  = cal  + (item.calories or 0)
             new_prot = prot + (item.protein  or 0)
             new_fat  = fat  + (item.fat      or 0)
             new_carb = carb + (item.carbs    or 0)
 
-            # prune any branches that have > calories
             if cal_max  is not None and new_cal  > cal_max:  break
             if prot_max is not None and new_prot > prot_max: continue
             if fat_max  is not None and new_fat  > fat_max:  continue
             if carb_max is not None and new_carb > carb_max: continue
 
+            cat_counts[cat] = cat_counts.get(cat, 0) + 1
             combo.append(item)
-            dfs(i + 1, count + 1, new_cal, new_prot, new_fat, new_carb, combo)
+            dfs(i + 1, count + 1, new_cal, new_prot, new_fat, new_carb, combo, cat_counts)
             combo.pop()
+            cat_counts[cat] -= 1
+            if cat_counts[cat] == 0:
+                del cat_counts[cat]
 
-    dfs(0, 0, 0, 0, 0, 0, [])
+    dfs(0, 0, 0, 0, 0, 0, [], {})
     return valid_combos
 
-def find_closest_combos(items, macros, max_items, collect_limit=300):
-    """
-    When no exact combos exist, collect combos ignoring max constraints,
-    then sort by distance to the original target ranges.
-    """
+# there there are no exact combos exist, get all combos ignoring max constraints and return the closest ones
+def find_closest_combos(items, macros, max_items, category_limits=None, collect_limit=300):
+
     # relax max constraints so the DFS doesn't prune on them
     relaxed = dict(macros)
     for key in ("calorieMax", "proteinMax", "fatMax", "carbMax"):
         relaxed[key] = None
 
-    combos = find_combos_dp(items, relaxed, max_items, collect_limit)
+    combos = find_combos_dp(items, relaxed, max_items, category_limits, collect_limit)
 
     if not combos:
         # also relax min constraints as a last resort
         empty = {k: None for k in macros}
-        combos = find_combos_dp(items, empty, max_items, collect_limit)
+        combos = find_combos_dp(items, empty, max_items, category_limits, collect_limit)
 
     def combo_dist(combo):
         return macro_distance({
@@ -285,6 +301,8 @@ def get_combos():
     macros = data.get("macros")
     num = data.get("num", 10)
     max_items = data.get("maxItems", 5)
+    # e.g. {"entree": {"min": 1, "max": 1}, "side": {"max": 2}}
+    category_limits = data.get("categoryLimits", {})
 
     query = MenuItem.query
     if restaurant:
@@ -302,7 +320,7 @@ def get_combos():
     random.shuffle(filtered_items)
     filtered_items.sort(key=lambda x: (x.calories or 0))
 
-    valid_combos = find_combos_dp(filtered_items, macros, max_items=max_items)
+    valid_combos = find_combos_dp(filtered_items, macros, max_items=max_items, category_limits=category_limits)
 
     closest = False
     if not valid_combos:
@@ -311,7 +329,7 @@ def get_combos():
         all_shuffled = list(all_items)
         random.shuffle(all_shuffled)
         all_shuffled.sort(key=lambda x: (x.calories or 0))
-        valid_combos = find_closest_combos(all_shuffled, macros, max_items)
+        valid_combos = find_closest_combos(all_shuffled, macros, max_items, category_limits)
 
     print(f"combos found: {len(valid_combos)}, closest={closest}")
 
