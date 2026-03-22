@@ -106,49 +106,7 @@ def make_combo():
         } for item in items
     ])
     
-from itertools import combinations
 from flask import request, jsonify
-
-# checks if combo macros are within the target macros 
-def check_macros(combo, macros):
-    total = {
-        "calories": sum(item.calories for item in combo),
-        "protein": sum(item.protein for item in combo),
-        "fat": sum(item.fat for item in combo),
-        "carbs": sum(item.carbs for item in combo),
-    }
-
-    if safe_float(macros["calorieMin"]) is not None and total["calories"] < safe_float(macros["calorieMin"]):
-        return False
-    if safe_float(macros["calorieMax"]) is not None and total["calories"] > safe_float(macros["calorieMax"]):
-        return False
-
-    if safe_float(macros["proteinMin"]) is not None and total["protein"] < safe_float(macros["proteinMin"]):
-        return False
-    if safe_float(macros["proteinMax"]) is not None and total["protein"] > safe_float(macros["proteinMax"]):
-        return False
-
-    if safe_float(macros["fatMin"]) is not None and total["fat"] < safe_float(macros["fatMin"]):
-        return False
-    if safe_float(macros["fatMax"]) is not None and total["fat"] > safe_float(macros.get("fatMax")):
-        return False
-
-    if safe_float(macros["carbMin"]) is not None and total["carbs"] < safe_float(macros["carbMin"]):
-        return False
-    if safe_float(macros["carbMax"]) is not None and total["carbs"] > safe_float(macros["carbMax"]):
-        return False
-
-    return True
-
-def in_range(total, min_key, max_key, macros):
-    min_val = safe_float(macros.get(min_key))
-    max_val = safe_float(macros.get(max_key))
-
-    if min_val is not None and total < min_val:
-        return False
-    if max_val is not None and total > max_val:
-        return False
-    return True
 
 def safe_float(val):
     try:
@@ -169,6 +127,7 @@ def is_valid_item(item, macros):
         violates_max(item, "carbs", "carbMax", macros)
     )
 
+# json formating for combos
 def format_combo(combo):
     return {
         "items": [item.name for item in combo],
@@ -180,41 +139,95 @@ def format_combo(combo):
             "carbs": sum(item.carbs for item in combo),
         }
     }
-    
+
+#  dfs with early pruning 
+def find_combos_dp(items, macros, max_items, collect_limit=500):
+    cal_max  = safe_float(macros.get("calorieMax"))
+    prot_max = safe_float(macros.get("proteinMax"))
+    fat_max  = safe_float(macros.get("fatMax"))
+    carb_max = safe_float(macros.get("carbMax"))
+    cal_min  = safe_float(macros.get("calorieMin"))
+    prot_min = safe_float(macros.get("proteinMin"))
+    fat_min  = safe_float(macros.get("fatMin"))
+    carb_min = safe_float(macros.get("carbMin"))
+
+    valid_combos = []
+    n = len(items)
+
+    def meets_min(cal, prot, fat, carb):
+        if cal_min  is not None and cal  < cal_min:  return False
+        if prot_min is not None and prot < prot_min: return False
+        if fat_min  is not None and fat  < fat_min:  return False
+        if carb_min is not None and carb < carb_min: return False
+        return True
+
+    def dfs(start, count, cal, prot, fat, carb, combo):
+        if len(valid_combos) >= collect_limit:
+            return
+
+        # a combo needs at least 2 items
+        if count >= 2 and meets_min(cal, prot, fat, carb):
+            valid_combos.append(list(combo))
+            if len(valid_combos) >= collect_limit:
+                return
+
+        if count >= max_items:
+            return
+
+        for i in range(start, n):
+            if len(valid_combos) >= collect_limit:
+                return
+
+            item = items[i]
+            new_cal  = cal  + (item.calories or 0)
+            new_prot = prot + (item.protein  or 0)
+            new_fat  = fat  + (item.fat      or 0)
+            new_carb = carb + (item.carbs    or 0)
+
+            # prune any branches that have > calories
+            if cal_max  is not None and new_cal  > cal_max:  break
+            if prot_max is not None and new_prot > prot_max: continue
+            if fat_max  is not None and new_fat  > fat_max:  continue
+            if carb_max is not None and new_carb > carb_max: continue
+
+            combo.append(item)
+            dfs(i + 1, count + 1, new_cal, new_prot, new_fat, new_carb, combo)
+            combo.pop()
+
+    dfs(0, 0, 0, 0, 0, 0, [])
+    return valid_combos
+
 @routes.route('/api/get_combos', methods=['POST'])
 def get_combos():
     data = request.get_json()
     categories = data.get("categories", [])
     restaurant = data.get("restaurant")
     macros = data.get("macros")
-    num = data.get("num")
+    num = data.get("num", 10)
+    max_items = data.get("maxItems", 5)
 
     query = MenuItem.query
     if restaurant:
         query = query.filter_by(restaurant=restaurant)
     if categories:
         query = query.filter(MenuItem.category.in_(categories))
-    
+
     all_items = query.all()
 
-    # filter out items that exceed individual max constraints (can't be part of a combo)
+    # filter out items that individually exceed any max constraint
     filtered_items = [item for item in all_items if is_valid_item(item, macros)]
 
-    valid_combos = []
-    for r in range(2, len(filtered_items) + 1): 
-        if r > 5: # for now, no need for combos with more than 5 items (or else it will take forever to get all combos)
-            break
-        for combo in combinations(filtered_items, r): # this will automatically have it in order of least to most items per combo
-            if check_macros(combo, macros):
-                valid_combos.append(list(combo))
+    # shuffle first so collect_limit samples are diverse, then sort by calories
+    # for the break-pruning optimisation in find_combos_dp
+    random.shuffle(filtered_items)
+    filtered_items.sort(key=lambda x: (x.calories or 0))
 
-    print(f"valid combos: {len(valid_combos)}")
-    if num:
-        valid_combos = random.sample(valid_combos, min(num, len(valid_combos)))
-    else:
-        valid_combos = random.sample(valid_combos, min(10, len(valid_combos)))
+    valid_combos = find_combos_dp(filtered_items, macros, max_items=max_items)
 
-    return jsonify([format_combo(combo) for combo in valid_combos])
+    print(f"valid combos found: {len(valid_combos)}")
+    result = random.sample(valid_combos, min(num, len(valid_combos)))
+
+    return jsonify([format_combo(combo) for combo in result])
 
 @routes.route('/api/get_restaurants')
 def get_restaurants():
