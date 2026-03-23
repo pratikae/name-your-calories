@@ -12,7 +12,7 @@ routes = Blueprint('routes', __name__)
 
 @routes.route('/api/items')
 def get_items():
-    restaurant = request.args.get('restaurant', '').lower()
+    restaurant = request.args.get('restaurant', '')
     num_items = request.args.get('num')
     num_items = int(num_items)
 
@@ -89,7 +89,7 @@ def get_items():
   
 @routes.route('/api/make_combo')
 def make_combo():
-    restaurant = request.args.get('restaurant', '').lower()
+    restaurant = request.args.get('restaurant', '')
     shuffle_num = int(request.args.get('num'))
 
     filters = [MenuItem.restaurant == restaurant]
