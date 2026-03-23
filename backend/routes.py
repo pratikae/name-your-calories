@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from database import db, MenuItem
 from sqlalchemy import desc, and_
-from pdf_cache import scrape_nutritionix_menu, cache_restaurant
+from cache import scrape_nutritionix_menu, cache_restaurant, save_logo, load_logos
 import re
 import os
 import requests
@@ -348,7 +348,8 @@ def get_combos():
 def get_restaurants():
     restaurant_names = db.session.query(MenuItem.restaurant).distinct().all()
     restaurants = sorted({name for (name,) in restaurant_names})
-    return jsonify(restaurants)
+    logos = load_logos()
+    return jsonify([{"name": r, "logo": logos.get(r)} for r in restaurants])
     
 @routes.route('/api/categories')
 def get_categories():
@@ -389,7 +390,7 @@ def add_restaurant():
         return jsonify({"error": f"'{existing[0]}' is already cached"}), 409
 
     try:
-        restaurant_name, items = scrape_nutritionix_menu(slug)
+        restaurant_name, items, logo_url = scrape_nutritionix_menu(slug)
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
     except Exception as e:
@@ -403,6 +404,8 @@ def add_restaurant():
         return jsonify({"error": f"'{existing_by_name[0]}' is already cached"}), 409
 
     cache_restaurant(restaurant_name, items)
+    if logo_url:
+        save_logo(restaurant_name, logo_url)
     return jsonify({"restaurant": restaurant_name, "items_cached": len(items)})
 
 

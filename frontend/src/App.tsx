@@ -151,7 +151,7 @@ type PinnedItem = {
 const App = () => {
   const filters = ["calories", "protein", "carbs", "fat"];
   const [restaurant, setRestaurant] = useState("");
-  const [restaurants, setRestaurants] = useState<string[]>([]);
+  const [restaurants, setRestaurants] = useState<{ name: string; logo: string | null }[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set());
   const [minCalories, setMinCalories] = useState<number | "">("");
@@ -473,14 +473,22 @@ const App = () => {
       {/* restaurant */}
       <div style={sectionStyle}>
         <span style={labelStyle}>restaurant</span>
-        <select
-          value={restaurant}
-          onChange={(e) => setRestaurant(e.target.value)}
-          style={{ ...inputStyle, width: "auto", padding: "7px 12px" }}
-        >
-          <option value="">select a restaurant</option>
-          {restaurants.map((r) => <option key={r} value={r}>{r}</option>)}
-        </select>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <select
+            value={restaurant}
+            onChange={(e) => setRestaurant(e.target.value)}
+            style={{ ...inputStyle, width: "auto", padding: "7px 12px" }}
+          >
+            <option value="">select a restaurant</option>
+            {restaurants.map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}
+          </select>
+          {(() => {
+            const logo = restaurants.find((r) => r.name === restaurant)?.logo;
+            return logo ? (
+              <img src={logo} alt={restaurant} style={{ height: "36px", objectFit: "contain", borderRadius: "6px" }} />
+            ) : null;
+          })()}
+        </div>
       </div>
 
       {/* add restaurant */}
