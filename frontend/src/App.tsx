@@ -10,9 +10,9 @@ const pill = (active: boolean): React.CSSProperties => ({
   alignItems: "center",
   padding: "5px 14px",
   borderRadius: "99px",
-  border: `1.5px solid ${active ? "#f4a7d9" : "#e0e0e0"}`,
-  backgroundColor: active ? "#fce8f5" : "#fafafa",
-  color: active ? "#b0469a" : "#777",
+  border: `1.5px solid ${active ? "#d894ff" : "#e0e0e0"}`,
+  backgroundColor: active ? "#f9eeff" : "#fafafa",
+  color: active ? "#9b30d0" : "#777",
   cursor: "pointer",
   fontSize: "0.82rem",
   userSelect: "none",
@@ -33,9 +33,9 @@ const inputStyle: React.CSSProperties = {
 const btnStyle: React.CSSProperties = {
   padding: "7px 18px",
   borderRadius: "8px",
-  border: "1.5px solid #f4a7d9",
-  backgroundColor: "#fce8f5",
-  color: "#b0469a",
+  border: "1.5px solid #d894ff",
+  backgroundColor: "#f9eeff",
+  color: "#9b30d0",
   cursor: "pointer",
   fontSize: "0.88rem",
   fontWeight: 500,
@@ -89,14 +89,14 @@ const MacroRangeSlider = ({
           type="range" min={min} max={max} step={step}
           value={minVal === "" ? min : minVal}
           onChange={(e) => setMinVal(Number(e.target.value))}
-          style={{ flex: 1, accentColor: "#f4a7d9" } as React.CSSProperties}
+          style={{ flex: 1, accentColor: "#d894ff" } as React.CSSProperties}
         />
         <span style={{ color: "#ccc", fontSize: "0.8rem" }}>–</span>
         <input
           type="range" min={min} max={max} step={step}
           value={maxVal === "" ? max : maxVal}
           onChange={(e) => setMaxVal(Number(e.target.value))}
-          style={{ flex: 1, accentColor: "#f4a7d9" } as React.CSSProperties}
+          style={{ flex: 1, accentColor: "#d894ff" } as React.CSSProperties}
         />
         <input
           type="number" min={min} max={max} step={step} value={maxVal}
@@ -450,8 +450,8 @@ const App = () => {
     marginTop: "6px",
     padding: "2px 10px",
     borderRadius: "99px",
-    backgroundColor: "#fce8f5",
-    color: "#b0469a",
+    backgroundColor: "#f9eeff",
+    color: "#9b30d0",
     fontSize: "0.75rem",
     fontWeight: 500,
   };
@@ -642,7 +642,7 @@ const App = () => {
 
       {/* pinned items */}
       {makeCombo && pinnedItems.length > 0 && (
-        <div style={{ marginBottom: "20px", padding: "16px 20px", borderRadius: "12px", backgroundColor: "#fdf5fb", border: "1px solid #f4d4ec" }}>
+        <div style={{ marginBottom: "20px", padding: "16px 20px", borderRadius: "12px", backgroundColor: "#faf4ff", border: "1px solid #e8beff" }}>
           <div style={{ ...labelStyle, marginBottom: "12px" }}>pinned items</div>
           {pinnedItems.map(({ menuItem: item, count }) => (
             <div key={item.name} style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
