@@ -108,15 +108,15 @@ const MacroRangeSlider = ({
   </div>
 );
 
-const MacroPieChart = ({ protein, carbs, fat }: { protein: number; carbs: number; fat: number }) => {
+const MacroPieChart = ({ protein, carbs, fat, size = 180 }: { protein: number; carbs: number; fat: number; size?: number }) => {
   const data = [
     { name: "protein", value: protein },
     { name: "carbs", value: carbs },
     { name: "fat", value: fat },
   ];
   return (
-    <PieChart width={180} height={180}>
-      <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60}>
+    <PieChart width={size} height={size}>
+      <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={size * 0.33}>
         {data.map((_, index) => (
           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
         ))}
@@ -192,6 +192,16 @@ const App = () => {
   const [addSlug, setAddSlug] = useState("");
   const [addStatus, setAddStatus] = useState<{ msg: string; ok: boolean } | null>(null);
   const [addLoading, setAddLoading] = useState(false);
+  const [exclusions, setExclusions] = useState<Record<string, string[]>>(() => {
+    try { return JSON.parse(localStorage.getItem("exclusions") || "{}"); } catch { return {}; }
+  });
+  const [favItems, setFavItems] = useState<Record<string, MenuItem[]>>(() => {
+    try { return JSON.parse(localStorage.getItem("favItems") || "{}"); } catch { return {}; }
+  });
+  const [favCombos, setFavCombos] = useState<Record<string, ComboData[]>>(() => {
+    try { return JSON.parse(localStorage.getItem("favCombos") || "{}"); } catch { return {}; }
+  });
+  const [expandedFavCombos, setExpandedFavCombos] = useState<Set<string>>(new Set());
 
   type CategoryLimit = { min: number | ""; max: number | "" };
   const [categoryLimits, setCategoryLimits] = useState<Record<string, CategoryLimit>>({});
@@ -219,6 +229,7 @@ const App = () => {
           fatMin: minFat, fatMax: maxFat,
           carbMin: minCarbs, carbMax: maxCarbs,
           categories: Array.from(selectedCategories),
+          exclude: excludedForRestaurant,
         },
         paramsSerializer,
       });
@@ -248,6 +259,7 @@ const App = () => {
         },
         num: numCombos,
         maxItems: maxItemsPerCombo,
+        excluded: excludedForRestaurant,
         categoryLimits: Object.fromEntries(
           Object.entries(categoryLimits)
             .filter(([, lim]) => lim.min !== "" || lim.max !== "")
@@ -330,6 +342,7 @@ const App = () => {
           calorieMax: remaining.calories, proteinMax: remaining.protein,
           fatMax: remaining.fat, carbMax: remaining.carbs,
           categories: Array.from(selectedCategories),
+          exclude: excludedForRestaurant,
         },
         paramsSerializer,
       });
@@ -392,6 +405,50 @@ const App = () => {
 
   useEffect(() => { fetchCategories(); }, [restaurant]);
   useEffect(() => { fetchRestaurants(); }, []);
+  useEffect(() => { localStorage.setItem("exclusions", JSON.stringify(exclusions)); }, [exclusions]);
+  useEffect(() => { localStorage.setItem("favItems", JSON.stringify(favItems)); }, [favItems]);
+  useEffect(() => { localStorage.setItem("favCombos", JSON.stringify(favCombos)); }, [favCombos]);
+
+  const excludedForRestaurant = exclusions[restaurant] || [];
+
+  const comboKey = (combo: ComboData) => combo.items.map((i) => i.name).sort().join("|");
+
+  const isItemFaved = (name: string) => (favItems[restaurant] || []).some((i) => i.name === name);
+  const toggleFavItem = (item: MenuItem) => {
+    setFavItems((prev) => {
+      const list = prev[restaurant] || [];
+      return {
+        ...prev,
+        [restaurant]: isItemFaved(item.name) ? list.filter((i) => i.name !== item.name) : [...list, item],
+      };
+    });
+  };
+
+  const isComboFaved = (combo: ComboData) => (favCombos[restaurant] || []).some((c) => comboKey(c) === comboKey(combo));
+  const toggleFavCombo = (combo: ComboData) => {
+    setFavCombos((prev) => {
+      const list = prev[restaurant] || [];
+      return {
+        ...prev,
+        [restaurant]: isComboFaved(combo) ? list.filter((c) => comboKey(c) !== comboKey(combo)) : [...list, combo],
+      };
+    });
+  };
+
+  const excludeItem = (name: string) => {
+    setExclusions((prev) => ({
+      ...prev,
+      [restaurant]: [...(prev[restaurant] || []), name],
+    }));
+    setItems((prev) => prev.filter((i) => i.name !== name));
+  };
+
+  const unexcludeItem = (name: string) => {
+    setExclusions((prev) => {
+      const next = (prev[restaurant] || []).filter((n) => n !== name);
+      return { ...prev, [restaurant]: next };
+    });
+  };
 
   const currentMacros = calculateCurrentMacros(pinnedItems);
 
@@ -458,14 +515,61 @@ const App = () => {
     fontWeight: 500,
   };
 
+  const sidebarStyle: React.CSSProperties = {
+    width: "180px",
+    flexShrink: 0,
+    position: "sticky",
+    top: "48px",
+    alignSelf: "flex-start",
+    fontSize: "0.8rem",
+  };
+
+  const sidebarLabelStyle: React.CSSProperties = {
+    fontSize: "0.7rem",
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    marginBottom: "8px",
+    display: "block",
+  };
+
   return (
     <div style={{
-      maxWidth: "760px",
+      display: "flex",
+      gap: "24px",
+      maxWidth: "1140px",
       margin: "0 auto",
       padding: "48px 24px 80px",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       color: "#333",
+      alignItems: "flex-start",
     }}>
+
+      {/* left sidebar — exclusions */}
+      <div style={sidebarStyle}>
+        {restaurant && excludedForRestaurant.length > 0 && (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <span style={{ ...sidebarLabelStyle, marginBottom: 0, color: "#c06060" }}>excluded</span>
+              <button
+                onClick={() => setExclusions((prev) => ({ ...prev, [restaurant]: [] }))}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.72rem", color: "#c06060" }}
+              >clear all</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+              {excludedForRestaurant.map((name) => (
+                <div key={name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 8px", borderRadius: "7px", backgroundColor: "#fff5f5", border: "1px solid #f4c0c0" }}>
+                  <span style={{ color: "#c06060", fontSize: "0.78rem", flex: 1, marginRight: "4px", wordBreak: "break-word" }}>{name}</span>
+                  <button onClick={() => unexcludeItem(name)} style={{ background: "none", border: "none", cursor: "pointer", color: "#c06060", padding: 0, fontSize: "0.72rem", flexShrink: 0 }}>✕</button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* center — main content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
 
       {/* header */}
       <h1 style={{ fontSize: "1.5rem", fontWeight: 600, color: "#444", marginBottom: "36px" }}>
@@ -497,7 +601,7 @@ const App = () => {
       <div style={{ ...sectionStyle, display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
         <input
           type="text"
-          placeholder="new restaurant (e.g. wendy's)"
+          placeholder="new restaurant"
           value={addSlug}
           onChange={(e) => setAddSlug(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addRestaurant()}
@@ -725,7 +829,23 @@ const App = () => {
                     {pinnedItems.some((p) => p.menuItem.name === item.name) ? "pinned" : "pin"}
                   </label>
                 )}
-                <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "#333" }}>{item.name}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "#333" }}>{item.name}</div>
+                  <button
+                    onClick={() => toggleFavItem(item)}
+                    title={isItemFaved(item.name) ? "unfavorite" : "favorite"}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.9rem", padding: "0 2px", lineHeight: 1, color: isItemFaved(item.name) ? "#f5c518" : "#ccc" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "#f5c518")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = isItemFaved(item.name) ? "#f5c518" : "#ccc")}
+                  >{isItemFaved(item.name) ? "★" : "☆"}</button>
+                  <button
+                    onClick={() => excludeItem(item.name)}
+                    title="exclude this item"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: excludedForRestaurant.includes(item.name) ? "#e05c5c" : "#ccc", fontSize: "0.8rem", padding: "0 2px", lineHeight: 1 }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "#e05c5c")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = excludedForRestaurant.includes(item.name) ? "#e05c5c" : "#ccc")}
+                  >✕</button>
+                </div>
                 <div style={macroRowStyle}>
                   {item.calories} cal · P {item.protein}g · C {item.carbs}g · F {item.fat}g
                 </div>
@@ -785,33 +905,61 @@ const App = () => {
             combos.map((combo, index) => (
               <div key={index} style={cardStyle}>
                 <div style={cardContentStyle}>
-                  <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "#333", marginBottom: "6px" }}>
-                    combo {index + 1} — {combo.total.calories} cal
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                    <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "#333" }}>
+                      combo {index + 1} — {combo.total.calories} cal
+                    </div>
+                    <button
+                      onClick={() => toggleFavCombo(combo)}
+                      title={isComboFaved(combo) ? "unfavorite" : "favorite"}
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.9rem", padding: "0 2px", lineHeight: 1, color: isComboFaved(combo) ? "#f5c518" : "#ccc" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "#f5c518")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = isComboFaved(combo) ? "#f5c518" : "#ccc")}
+                    >{isComboFaved(combo) ? "★" : "☆"}</button>
                   </div>
                   <ul style={{ margin: "0 0 6px", paddingLeft: "16px", fontSize: "0.85rem", color: "#555", lineHeight: 1.7 }}>
-                    {combo.items.map((item, idx) => (
-                      <li key={idx} style={{ position: "relative", cursor: "default" }}
-                        onMouseEnter={(e) => {
-                          const tip = e.currentTarget.querySelector<HTMLDivElement>(".macro-tip");
-                          if (tip) tip.style.display = "block";
-                        }}
-                        onMouseLeave={(e) => {
-                          const tip = e.currentTarget.querySelector<HTMLDivElement>(".macro-tip");
-                          if (tip) tip.style.display = "none";
-                        }}
-                      >
-                        {item.name}
-                        <div className="macro-tip" style={{
-                          display: "none", position: "absolute", left: "100%", top: "50%",
-                          transform: "translateY(-50%)", marginLeft: "10px", zIndex: 10,
-                          backgroundColor: "#fff", border: "1.5px solid #e8beff",
-                          borderRadius: "8px", padding: "6px 10px", whiteSpace: "nowrap",
-                          fontSize: "0.75rem", color: "#666", boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-                        }}>
-                          {item.calories} cal · P {item.protein}g · C {item.carbs}g · F {item.fat}g
-                        </div>
-                      </li>
-                    ))}
+                    {(() => {
+                      const counts = new Map<string, { item: typeof combo.items[0]; count: number }>();
+                      for (const item of combo.items) {
+                        const entry = counts.get(item.name);
+                        if (entry) entry.count++;
+                        else counts.set(item.name, { item, count: 1 });
+                      }
+                      return Array.from(counts.values()).map(({ item, count }) => (
+                        <li key={item.name} style={{ position: "relative", cursor: "default" }}
+                          onMouseEnter={(e) => {
+                            const tip = e.currentTarget.querySelector<HTMLDivElement>(".macro-tip");
+                            if (tip) tip.style.display = "block";
+                          }}
+                          onMouseLeave={(e) => {
+                            const tip = e.currentTarget.querySelector<HTMLDivElement>(".macro-tip");
+                            if (tip) tip.style.display = "none";
+                          }}
+                        >
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                            {item.name}
+                            {count > 1 && <span style={{ color: "#9b30d0", fontWeight: 600 }}>×{count}</span>}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); excludeItem(item.name); }}
+                              title="exclude this item"
+                              style={{ background: "none", border: "none", cursor: "pointer", color: excludedForRestaurant.includes(item.name) ? "#e05c5c" : "#ccc", fontSize: "0.75rem", padding: "0 1px", lineHeight: 1 }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = "#e05c5c")}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = excludedForRestaurant.includes(item.name) ? "#e05c5c" : "#ccc")}
+                            >✕</button>
+                          </span>
+                          <div className="macro-tip" style={{
+                            display: "none", position: "absolute", left: "100%", top: "50%",
+                            transform: "translateY(-50%)", marginLeft: "10px", zIndex: 10,
+                            backgroundColor: "#fff", border: "1.5px solid #e8beff",
+                            borderRadius: "8px", padding: "6px 10px", whiteSpace: "nowrap",
+                            fontSize: "0.75rem", color: "#666", boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                          }}>
+                            {item.calories * count} cal · P {item.protein * count}g · C {item.carbs * count}g · F {item.fat * count}g
+                            {count > 1 && <span style={{ color: "#bbb" }}> ({item.calories} cal × {count})</span>}
+                          </div>
+                        </li>
+                      ));
+                    })()}
                   </ul>
                   <div style={macroRowStyle}>
                     P {combo.total.protein}g · C {combo.total.carbs}g · F {combo.total.fat}g
@@ -845,6 +993,73 @@ const App = () => {
           )}
         </div>
       )}
+
+      </div>{/* end center */}
+
+      {/* right sidebar — favorites */}
+      <div style={sidebarStyle}>
+        {restaurant && (favItems[restaurant] || []).length > 0 && (
+          <div style={{ marginBottom: "20px" }}>
+            <span style={{ ...sidebarLabelStyle, color: "#b8860b" }}>starred items</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+              {(favItems[restaurant] || []).map((item) => (
+                <div key={item.name} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "5px 8px", borderRadius: "7px", backgroundColor: "#fffdf0", border: "1px solid #f5e49c" }}>
+                  <div style={{ flex: 1, marginRight: "4px" }}>
+                    <div style={{ color: "#6b5800", fontSize: "0.78rem", wordBreak: "break-word", fontWeight: 500 }}>{item.name}</div>
+                    <div style={{ color: "#b8a050", fontSize: "0.7rem", marginTop: "2px" }}>{item.calories} cal</div>
+                  </div>
+                  <button onClick={() => toggleFavItem(item)} style={{ background: "none", border: "none", cursor: "pointer", color: "#f5c518", padding: 0, fontSize: "0.8rem", flexShrink: 0 }}>★</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {restaurant && (favCombos[restaurant] || []).length > 0 && (
+          <div>
+            <span style={{ ...sidebarLabelStyle, color: "#b8860b" }}>starred combos</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+              {(favCombos[restaurant] || []).map((combo, i) => {
+                const key = comboKey(combo);
+                const expanded = expandedFavCombos.has(key);
+                const toggle = () => setExpandedFavCombos((prev) => {
+                  const next = new Set(prev);
+                  expanded ? next.delete(key) : next.add(key);
+                  return next;
+                });
+                return (
+                  <div key={i} style={{ borderRadius: "7px", backgroundColor: "#fffdf0", border: "1px solid #f5e49c", overflow: "hidden" }}>
+                    {/* header row */}
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "5px 8px" }}>
+                      <div style={{ flex: 1, marginRight: "4px", cursor: "pointer" }} onClick={toggle}>
+                        <div style={{ color: "#6b5800", fontSize: "0.72rem", wordBreak: "break-word" }}>
+                          {combo.items.map((it) => it.name).join(", ")}
+                        </div>
+                        <div style={{ color: "#b8a050", fontSize: "0.7rem", marginTop: "2px" }}>
+                          {combo.total.calories} cal · P {combo.total.protein}g · {combo.count} items
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "2px", flexShrink: 0 }}>
+                        <button onClick={() => toggleFavCombo(combo)} style={{ background: "none", border: "none", cursor: "pointer", color: "#f5c518", padding: 0, fontSize: "0.8rem" }}>★</button>
+                        <button onClick={toggle} style={{ background: "none", border: "none", cursor: "pointer", color: "#c9a84c", padding: 0, fontSize: "0.65rem" }}>{expanded ? "▲" : "▼"}</button>
+                      </div>
+                    </div>
+                    {/* expanded details */}
+                    {expanded && (
+                      <div style={{ borderTop: "1px solid #f5e49c", padding: "6px 8px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                        <MacroPieChart protein={combo.total.protein} carbs={combo.total.carbs} fat={combo.total.fat} size={140} />
+                        <div style={{ fontSize: "0.7rem", color: "#b8a050", marginTop: "4px", textAlign: "center", lineHeight: 1.6 }}>
+                          <div>{combo.total.calories} cal</div>
+                          <div>P {combo.total.protein}g · C {combo.total.carbs}g · F {combo.total.fat}g</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
 
     </div>
   );

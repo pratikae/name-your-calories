@@ -44,6 +44,10 @@ def get_items():
     if categories:
         filters.append(MenuItem.category.in_(categories))
 
+    excluded = request.args.getlist("exclude")
+    if excluded:
+        filters.append(~MenuItem.name.in_(excluded))
+
     macros = {
         "calorieMin": request.args.get("calorieMin"),
         "calorieMax": request.args.get("calorieMax"),
@@ -112,10 +116,14 @@ def make_combo():
     if categories:
         filters.append(MenuItem.category.in_(categories))
 
+    excluded = request.args.getlist("exclude")
+    if excluded:
+        filters.append(~MenuItem.name.in_(excluded))
+
     # query by what is in the filters arr
     items_query = MenuItem.query.filter(and_(*filters))
     items = items_query.all()
-        
+
     if shuffle_num:
         if shuffle_num < len(items):
             items = random.sample(items, shuffle_num)
@@ -313,12 +321,15 @@ def get_combos():
     max_items = data.get("maxItems", 5)
     # e.g. {"entree": {"min": 1, "max": 1}, "side": {"max": 2}}
     category_limits = data.get("categoryLimits", {})
+    excluded = data.get("excluded", [])
 
     query = MenuItem.query
     if restaurant:
         query = query.filter_by(restaurant=restaurant)
     if categories:
         query = query.filter(MenuItem.category.in_(categories))
+    if excluded:
+        query = query.filter(~MenuItem.name.in_(excluded))
 
     all_items = query.all()
 
