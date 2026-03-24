@@ -538,7 +538,7 @@ const App = () => {
     <div style={{
       display: "flex",
       gap: "24px",
-      maxWidth: "1140px",
+      maxWidth: "1300px",
       margin: "0 auto",
       padding: "48px 24px 80px",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -570,7 +570,7 @@ const App = () => {
       </div>
 
       {/* center — main content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: "720px" }}>
 
       {/* header */}
       <h1 style={{ fontSize: "1.5rem", fontWeight: 600, color: "#444", marginBottom: "36px" }}>
