@@ -210,7 +210,10 @@ def format_combo(combo):
         }
     }
 
-# dfs with early pruning 
+# f(i, j) = all valid combos from items[i:] given accumulated macro totals j = (cal, prot, fat, carb).
+# each call either skips items[i] (implicit, via loop advancing to i+1) or includes it and recurses.
+# combo and cat_counts are mutated in-place and restored after each branch (append/pop).
+# valid_combos is a shared collector; collect_limit provides early termination.
 def find_combos_dp(items, macros, max_items, category_limits=None, collect_limit=500):
     cal_max  = safe_float(macros.get("calorieMax"))
     prot_max = safe_float(macros.get("proteinMax"))
@@ -239,8 +242,8 @@ def find_combos_dp(items, macros, max_items, category_limits=None, collect_limit
                 return False
         return True
 
-    # cat_counts is mutated in-place and undone after each recursive call
-    def dfs(start, count, cal, prot, fat, carb, combo, cat_counts):
+    # f(i, j): collect valid combos from items[i:] with accumulated totals j
+    def f(i, count, cal, prot, fat, carb, combo, cat_counts):
         if len(valid_combos) >= collect_limit:
             return
 
@@ -252,7 +255,7 @@ def find_combos_dp(items, macros, max_items, category_limits=None, collect_limit
         if count >= max_items:
             return
 
-        for i in range(start, n):
+        for i in range(i, n):
             if len(valid_combos) >= collect_limit:
                 return
 
@@ -276,13 +279,13 @@ def find_combos_dp(items, macros, max_items, category_limits=None, collect_limit
 
             cat_counts[cat] = cat_counts.get(cat, 0) + 1
             combo.append(item)
-            dfs(i + 1, count + 1, new_cal, new_prot, new_fat, new_carb, combo, cat_counts)
+            f(i + 1, count + 1, new_cal, new_prot, new_fat, new_carb, combo, cat_counts)
             combo.pop()
             cat_counts[cat] -= 1
             if cat_counts[cat] == 0:
                 del cat_counts[cat]
 
-    dfs(0, 0, 0, 0, 0, 0, [], {})
+    f(0, 0, 0, 0, 0, 0, [], {})
     return valid_combos
 
 # there there are no exact combos exist, get all combos ignoring max constraints and return the closest ones
