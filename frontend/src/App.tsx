@@ -202,6 +202,7 @@ const App = () => {
     try { return JSON.parse(localStorage.getItem("favCombos") || "{}"); } catch { return {}; }
   });
   const [expandedFavCombos, setExpandedFavCombos] = useState<Set<string>>(new Set());
+  const [expandedFavItems, setExpandedFavItems] = useState<Set<string>>(new Set());
 
   type CategoryLimit = { min: number | ""; max: number | "" };
   const [categoryLimits, setCategoryLimits] = useState<Record<string, CategoryLimit>>({});
@@ -1002,15 +1003,39 @@ const App = () => {
           <div style={{ marginBottom: "20px" }}>
             <span style={{ ...sidebarLabelStyle, color: "#b8860b" }}>starred items</span>
             <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-              {(favItems[restaurant] || []).map((item) => (
-                <div key={item.name} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "5px 8px", borderRadius: "7px", backgroundColor: "#fffdf0", border: "1px solid #f5e49c" }}>
-                  <div style={{ flex: 1, marginRight: "4px" }}>
-                    <div style={{ color: "#6b5800", fontSize: "0.78rem", wordBreak: "break-word", fontWeight: 500 }}>{item.name}</div>
-                    <div style={{ color: "#b8a050", fontSize: "0.7rem", marginTop: "2px" }}>{item.calories} cal</div>
+              {(favItems[restaurant] || []).map((item) => {
+                const expanded = expandedFavItems.has(item.name);
+                const toggle = () => setExpandedFavItems((prev) => {
+                  const next = new Set(prev);
+                  expanded ? next.delete(item.name) : next.add(item.name);
+                  return next;
+                });
+                return (
+                  <div key={item.name} style={{ borderRadius: "7px", backgroundColor: "#fffdf0", border: "1px solid #f5e49c", overflow: "hidden" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "5px 8px" }}>
+                      <div style={{ flex: 1, marginRight: "4px", cursor: "pointer" }} onClick={toggle}>
+                        <div style={{ color: "#6b5800", fontSize: "0.78rem", wordBreak: "break-word", fontWeight: 500 }}>{item.name}</div>
+                        <div style={{ color: "#b8a050", fontSize: "0.7rem", marginTop: "2px" }}>
+                          {item.calories} cal · P {item.protein}g
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "2px", flexShrink: 0 }}>
+                        <button onClick={() => toggleFavItem(item)} style={{ background: "none", border: "none", cursor: "pointer", color: "#f5c518", padding: 0, fontSize: "0.8rem" }}>★</button>
+                        <button onClick={toggle} style={{ background: "none", border: "none", cursor: "pointer", color: "#c9a84c", padding: 0, fontSize: "0.65rem" }}>{expanded ? "▲" : "▼"}</button>
+                      </div>
+                    </div>
+                    {expanded && (
+                      <div style={{ borderTop: "1px solid #f5e49c", padding: "6px 8px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                        <MacroPieChart protein={item.protein} carbs={item.carbs} fat={item.fat} size={140} />
+                        <div style={{ fontSize: "0.7rem", color: "#b8a050", marginTop: "4px", textAlign: "center", lineHeight: 1.6 }}>
+                          <div>{item.calories} cal</div>
+                          <div>P {item.protein}g · C {item.carbs}g · F {item.fat}g</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <button onClick={() => toggleFavItem(item)} style={{ background: "none", border: "none", cursor: "pointer", color: "#f5c518", padding: 0, fontSize: "0.8rem", flexShrink: 0 }}>★</button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
