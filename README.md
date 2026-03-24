@@ -1,5 +1,184 @@
-name your calories
+# Name Your Calories
 
-user can input a fastfood restaurant and recieve three random items under their calorie limit
+A fast food macro tracker that lets you filter menu items and generate meal combos by calorie, protein, fat, and carb targets. Restaurant data is scraped from Nutritionix and stored locally in a SQLite database.
 
-WIP of course
+---
+
+## Features
+
+- **Restaurant selector** - choose from a list of pre-cached restaurants or add new ones by Nutritionix slug
+- **Macro filters** - set min/max targets for calories, protein, fat, and carbs
+- **Category filters** - filter by item category (entree, side, drink, etc.)
+- **Shuffled items** - get a random sample of items matching your filters; falls back to closest matches if no exact results exist
+- **Combo builder** - generates multi-item meal combos that fit within your macro targets using a depth-first search with early pruning
+- **Duplicate detection** - combos show repeated items as x2, x3, etc. with combined macro totals
+- **Macro tooltips** - hover any combo item to see its individual macros
+- **Delivery links** - open DoorDash or Uber Eats restaurant search in a new tab, or copy item names to clipboard
+- **Exclusions** - exclude items you don't want to see; exclusions are saved per restaurant in localStorage and applied server-side
+- **Favorites** - save individual items or full combos per restaurant; favorites persist in localStorage and show macro breakdowns and pie charts in the right sidebar
+- **Add restaurants** - enter any Nutritionix restaurant slug to scrape and cache a new restaurant on the fly
+
+---
+
+## Tech Stack
+
+**Backend**
+- Python 3
+- Flask with Flask-SQLAlchemy
+- SQLite (local database)
+- BeautifulSoup4 (HTML scraping from Nutritionix)
+- pdfplumber (legacy PDF parsing)
+
+**Frontend**
+- React 19 + TypeScript
+- Vite
+- Recharts (macro pie charts)
+- Axios
+
+---
+
+## Project Structure
+
+```
+Name-Your-Calories/
+├── backend/
+│   ├── app.py               # Flask app entry point
+│   ├── routes.py            # API route definitions
+│   ├── cache.py             # Nutritionix scraper and restaurant caching logic
+│   ├── database.py          # SQLAlchemy models
+│   ├── requirements.txt
+│   └── restaurant_logos.json  # Persisted logo URLs keyed by restaurant name
+└── frontend/
+    ├── src/
+    │   └── App.tsx          # Main React component
+    ├── package.json
+    └── vite.config.ts
+```
+
+---
+
+## Setup
+
+### Backend
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
+
+The backend runs on `http://localhost:5000` by default. On first run, it seeds the database with a small set of default restaurants by scraping Nutritionix.
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend runs on `http://localhost:5173` by default and proxies API requests to the backend.
+
+---
+
+## API Endpoints
+
+### `GET /api/items`
+
+Returns individual menu items for a restaurant, filtered by macros and categories.
+
+**Query params:**
+
+| Param | Description |
+|---|---|
+| `restaurant` | Restaurant name (required) |
+| `num` | Max number of items to return |
+| `calorieMin`, `calorieMax` | Calorie range |
+| `proteinMin`, `proteinMax` | Protein range (grams) |
+| `fatMin`, `fatMax` | Fat range (grams) |
+| `carbMin`, `carbMax` | Carb range (grams) |
+| `categories` | Repeated param; filter to these categories |
+| `exclude` | Repeated param; item names to exclude |
+
+If no items match the exact filters, returns the closest matches sorted by distance from the target ranges.
+
+---
+
+### `POST /api/get_combos`
+
+Generates multi-item meal combos that fit the given macro constraints.
+
+**Request body (JSON):**
+```json
+{
+  "restaurant": "McDonald's",
+  "macros": {
+    "calorieMin": 500,
+    "calorieMax": 800,
+    "proteinMin": 30
+  },
+  "categories": ["Burgers", "Sides"],
+  "categoryLimits": {
+    "Burgers": { "min": 1, "max": 1 },
+    "Sides": { "max": 2 }
+  },
+  "maxItems": 4,
+  "num": 10,
+  "excluded": ["Large Fries"]
+}
+```
+
+Returns up to `num` combos. If no exact combos exist, falls back to closest matches.
+
+---
+
+### `GET /api/categories`
+
+Returns the distinct item categories for a given restaurant.
+
+**Query params:** `restaurant`
+
+---
+
+### `GET /api/get_restaurants`
+
+Returns all cached restaurants with their logo URLs.
+
+---
+
+### `POST /api/add_restaurant`
+
+Scrapes and caches a new restaurant from Nutritionix.
+
+**Request body (JSON):**
+```json
+{ "slug": "chipotle" }
+```
+
+Returns the canonical restaurant name and item count on success.
+
+---
+
+## Data Source
+
+Restaurant menus are scraped from `nutritionix.com/{slug}/menu/premium`. The scraper extracts item names, categories, and per-item calorie, protein, fat, and carb values. Logo images are extracted from the same page and stored in `restaurant_logos.json`.
+
+Menu data is stored in a local SQLite database (`menu_items.db`) and only re-scraped when explicitly requested via `/api/add_restaurant`.
+
+---
+
+## Combo Algorithm
+
+Combos are generated using a depth-first search over all valid items for the selected restaurant. Items that individually exceed any max constraint are pruned before the search. The DFS uses early stopping: once the running calorie total exceeds the max, the branch is cut (items are sorted by calories ascending for this to work). Up to 500 valid combos are collected, then a random sample is returned. If no valid combos exist, constraints are relaxed and the closest combos by macro distance are returned instead.
+
+---
+
+## Persistence
+
+No user accounts. All user-specific state is stored in `localStorage` keyed by restaurant:
+
+- `exclusions` — items to hide from results
+- `favItems` — saved individual menu items
+- `favCombos` — saved meal combos
