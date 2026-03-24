@@ -182,8 +182,6 @@ def parse_menu_pdf(filepath):
                     # check if the row is a category header
                     if not any(row[i] for i in col_map.values()) and category_candidate:
                         last_category = category_candidate
-                        if "Veggie Cravings" in last_category: # taco bell is annoying
-                            last_category = "Veggie Cravings"
                         continue  # skip the category header row itself
 
                     # make sure row has nutrition info
@@ -231,6 +229,8 @@ def cache_restaurant(restaurant_name, items):
         ))
     db.session.commit()
     print("cached new restaurant")
+
+
 
 def cache_first_restaurants(app):
     with app.app_context():

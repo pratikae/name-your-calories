@@ -183,7 +183,16 @@ def is_valid_item(item, macros):
 # json formating for combos
 def format_combo(combo):
     return {
-        "items": [item.name for item in combo],
+        "items": [
+            {
+                "name": item.name,
+                "calories": item.calories,
+                "protein": item.protein,
+                "fat": item.fat,
+                "carbs": item.carbs,
+            }
+            for item in combo
+        ],
         "count": len(combo),
         "total": {
             "calories": sum(item.calories for item in combo),
@@ -343,6 +352,7 @@ def get_combos():
         "combos": [format_combo(combo) for combo in result],
         "closest": closest,
     })
+
 
 @routes.route('/api/get_restaurants')
 def get_restaurants():

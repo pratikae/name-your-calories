@@ -134,6 +134,7 @@ type MenuItem = {
   fat: number;
   carbs: number;
   category: string;
+  price?: number;
 };
 
 type MacroLimits = {
@@ -176,8 +177,9 @@ const App = () => {
   const [pinnedItems, setPinnedItems] = useState<PinnedItem[]>([]);
   const [showCombos, setShowCombos] = useState(false);
 
+  type ComboItem = { name: string; calories: number; protein: number; fat: number; carbs: number };
   type ComboData = {
-    items: string[];
+    items: ComboItem[];
     count: number;
     total: { calories: number; protein: number; fat: number; carbs: number };
   };
@@ -735,6 +737,39 @@ const App = () => {
         )}
       </div>
 
+      {/* order buttons */}
+      {hasFetched && !showCombos && items.length > 0 && restaurant && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", marginTop: "28px" }}>
+          <span style={labelStyle}>order on</span>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center" }}>
+            <button
+              onClick={() => window.open(`https://www.doordash.com/search/store/${encodeURIComponent(restaurant)}/`, "_blank")}
+              style={{ ...btnStyle, backgroundColor: "#fff5f0", borderColor: "#ff6b35", color: "#ff6b35" }}
+            >
+              DoorDash
+            </button>
+            <button
+              onClick={() => window.open(`https://www.ubereats.com/search?q=${encodeURIComponent(restaurant)}`, "_blank")}
+              style={{ ...btnStyle, backgroundColor: "#f0fff4", borderColor: "#06c167", color: "#06c167" }}
+            >
+              Uber Eats
+            </button>
+            <button
+              onClick={() => {
+                const names = items.map((i) => i.name).join("\n");
+                navigator.clipboard.writeText(names);
+              }}
+              style={btnStyle}
+            >
+              copy items
+            </button>
+          </div>
+          <div style={{ fontSize: "0.78rem", color: "#bbb", textAlign: "center", maxWidth: "400px" }}>
+            opens the restaurant search — use "copy items" to paste your order into the app
+          </div>
+        </div>
+      )}
+
       {/* combos */}
       {showCombos && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", marginTop: "32px" }}>
@@ -754,15 +789,59 @@ const App = () => {
                     combo {index + 1} — {combo.total.calories} cal
                   </div>
                   <ul style={{ margin: "0 0 6px", paddingLeft: "16px", fontSize: "0.85rem", color: "#555", lineHeight: 1.7 }}>
-                    {combo.items.map((name, idx) => <li key={idx}>{name}</li>)}
+                    {combo.items.map((item, idx) => (
+                      <li key={idx} style={{ position: "relative", cursor: "default" }}
+                        onMouseEnter={(e) => {
+                          const tip = e.currentTarget.querySelector<HTMLDivElement>(".macro-tip");
+                          if (tip) tip.style.display = "block";
+                        }}
+                        onMouseLeave={(e) => {
+                          const tip = e.currentTarget.querySelector<HTMLDivElement>(".macro-tip");
+                          if (tip) tip.style.display = "none";
+                        }}
+                      >
+                        {item.name}
+                        <div className="macro-tip" style={{
+                          display: "none", position: "absolute", left: "100%", top: "50%",
+                          transform: "translateY(-50%)", marginLeft: "10px", zIndex: 10,
+                          backgroundColor: "#fff", border: "1.5px solid #e8beff",
+                          borderRadius: "8px", padding: "6px 10px", whiteSpace: "nowrap",
+                          fontSize: "0.75rem", color: "#666", boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                        }}>
+                          {item.calories} cal · P {item.protein}g · C {item.carbs}g · F {item.fat}g
+                        </div>
+                      </li>
+                    ))}
                   </ul>
                   <div style={macroRowStyle}>
                     P {combo.total.protein}g · C {combo.total.carbs}g · F {combo.total.fat}g
                   </div>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(combo.items.map((i) => i.name).join("\n"))}
+                    style={{ ...btnStyle, marginTop: "10px", fontSize: "0.78rem", padding: "4px 12px" }}
+                  >
+                    copy items
+                  </button>
                 </div>
                 <MacroPieChart protein={combo.total.protein} carbs={combo.total.carbs} fat={combo.total.fat} />
               </div>
             ))
+          )}
+          {combos.length > 0 && restaurant && (
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center", marginTop: "8px" }}>
+              <button
+                onClick={() => window.open(`https://www.doordash.com/search/store/${encodeURIComponent(restaurant)}/`, "_blank")}
+                style={{ ...btnStyle, backgroundColor: "#fff5f0", borderColor: "#ff6b35", color: "#ff6b35" }}
+              >
+                DoorDash
+              </button>
+              <button
+                onClick={() => window.open(`https://www.ubereats.com/search?q=${encodeURIComponent(restaurant)}`, "_blank")}
+                style={{ ...btnStyle, backgroundColor: "#f0fff4", borderColor: "#06c167", color: "#06c167" }}
+              >
+                Uber Eats
+              </button>
+            </div>
           )}
         </div>
       )}
